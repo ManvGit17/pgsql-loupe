@@ -1,0 +1,14 @@
+# Local-only instructions for Claude Code; not part of the repo
+CLAUDE.md
+PLAN.md
+.claude/
+
+__pycache__/
+*.py[cod]
+.venv/
+.venv-matrix/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
+build/
