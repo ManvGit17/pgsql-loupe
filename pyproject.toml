@@ -54,3 +54,8 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = ["-ra", "--strict-markers"]
+filterwarnings = [
+    # Starlette 1.10 recommends the new `httpx2` fork for its test client. httpx 0.28.1 is
+    # pinned and still supported; revisit when Starlette drops httpx support.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]

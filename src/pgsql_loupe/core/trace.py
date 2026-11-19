@@ -28,10 +28,11 @@ _current: ContextVar[Trace | None] = ContextVar("pgsql_loupe_trace", default=Non
 class Replay:
     """What is needed to run a statement again for EXPLAIN. Never served by the API."""
 
-    query: Any
+    query: Any = field(repr=False)
     """The query object the user passed (str, bytes, sql.Composed or a template string)."""
-    params: Any
-    """A shallow copy of the original parameters (for executemany: the first set)."""
+    params: Any = field(repr=False)
+    """A shallow copy of the original parameters (for executemany: the first set).
+    Unredacted, so excluded from repr(): printing or logging a Replay never shows values."""
     raw: bool = False
     """True if the statement used $1-style placeholders (a psycopg RawCursor)."""
 

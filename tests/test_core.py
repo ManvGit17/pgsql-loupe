@@ -7,6 +7,7 @@ import pytest
 import pgsql_loupe
 from pgsql_loupe.core.callsite import find_call_site
 from pgsql_loupe.core.redact import redact_params, show
+from pgsql_loupe.core.trace import Replay, Statement
 
 
 def test_package_imports() -> None:
@@ -50,3 +51,15 @@ def test_call_site_is_this_file() -> None:
     site = find_call_site()
     assert site is not None
     assert (site.file, site.function) == (__file__, "test_call_site_is_this_file")
+
+
+def test_replay_values_never_appear_in_repr_or_str() -> None:
+    secret = "hunter2-do-not-leak"
+    replay = Replay(query=f"SELECT '{secret}'", params={"password": secret}, raw=False)
+    statement = Statement(
+        sql="SELECT %(password)s", params={"password": "<redacted>"}, kind="execute",
+        start_ms=0.0, replay=replay,
+    )  # fmt: skip
+    for text in (repr(replay), str(replay), repr(statement), str(statement)):
+        assert secret not in text
+    assert repr(replay) == "Replay(raw=False)"
