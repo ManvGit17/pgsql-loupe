@@ -120,3 +120,43 @@
    statements still recorded into the request's trace?
 4. Why is `Server-Timing` sometimes lower than the database time in the stored trace?
 5. Why does the production guard run inside `install()` instead of on the first request?
+
+## Plans and triggers (2026-11-19)
+
+**What was built**
+
+- `explain/safety.py`: sorts a statement into *read*, *write* or *not explainable* from its
+  first keyword and a search for write keywords.
+- `explain/capture.py`: replays a recorded statement with its original parameters, under
+  `EXPLAIN`, on a separate connection. Reads: `EXPLAIN (ANALYZE, BUFFERS)` in a `READ ONLY`
+  transaction. Writes: plain `EXPLAIN` (not executed), or `ANALYZE` in a rolled-back
+  transaction when `analyze_writes=True`. Each replay has a statement and lock timeout.
+- `explain/plan.py` and `flags.py`: the JSON plan as a tree (time per node, expected vs actual
+  rows, buffers, triggers that fired) and three warnings: big sequential scans, row estimates
+  off by 10x or more, sorts or hashes that spilled to disk.
+- `?lens=plan` captures plans after the response is sent; `POST .../statements/{n}/explain`
+  captures one on demand.
+- `docs/adr/0003-plan-capture-safety.md`.
+
+**Why**
+
+- `EXPLAIN ANALYZE` *runs* the statement. A separate connection means plan capture can never
+  touch the user's transaction, locks or data.
+- A read-only transaction closes a hole: a `SELECT` can still write, through `nextval()` or a
+  function that inserts. Tested: both fail in read-only mode and change nothing.
+- The classifier only ever errs towards safety: a stray keyword makes a read look like a
+  write (losing `ANALYZE`), never the other way round.
+- The API must never serve raw parameters, but replays need them. They live in
+  `Statement.replay`, which the JSON serialiser leaves out; a test proves a password value
+  never appears in any response, and a mutation check proves that test can fail.
+- Two browser attacks on a localhost tool: a cross-site `POST` (blocked by requiring an
+  `X-Lens` header, which needs a CORS preflight) and DNS rebinding (blocked by requiring a
+  local `Host` header).
+
+**Quiz**
+
+1. Why does plan capture use its own connection instead of the user's?
+2. Give two ways a plain `SELECT` can change data, and what stops them during capture.
+3. With `analyze_writes=True`, how can a test prove the user's `UPDATE` ran exactly once?
+4. Why can't the replay see a temporary table the request created?
+5. What is DNS rebinding, and why does checking the `Host` header stop it here?
