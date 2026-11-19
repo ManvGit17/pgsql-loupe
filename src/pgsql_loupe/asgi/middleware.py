@@ -1,4 +1,4 @@
-"""Pure ASGI middleware: traces opted-in requests and serves /__lens/api.
+"""Pure ASGI middleware: traces opted-in requests and serves the panel and /__lens/api.
 
     app.add_middleware(LoupeMiddleware)        # Starlette / FastAPI
     app = LoupeMiddleware(app)                 # any other ASGI app
@@ -15,6 +15,7 @@ from collections.abc import Awaitable, Callable, Mapping, MutableMapping
 from typing import Any
 from urllib.parse import parse_qs
 
+from pgsql_loupe.asgi import panel
 from pgsql_loupe.asgi.config import LoupeConfig, Scope
 from pgsql_loupe.asgi.serialize import detail, plan_to_dict, summary
 from pgsql_loupe.asgi.store import RequestRecord, RequestStore
@@ -84,6 +85,9 @@ class LoupeMiddleware:
             record = RequestRecord(trace=t, method=scope["method"], path=scope["path"], mode=mode)
             self.store.add(record)
 
+            held: list[Message] = []  # response start + body chunks, when injecting
+            chunks: list[bytes] = []
+
             async def send_with_headers(message: Message) -> None:
                 if message["type"] == "http.response.start":
                     record.status = message["status"]
@@ -91,6 +95,23 @@ class LoupeMiddleware:
                     headers.append((b"x-lens-id", record.id.encode()))
                     headers.append((b"server-timing", server_timing(t).encode()))
                     message = {**message, "headers": headers}
+                    if self.config.inject_toggle and _injectable(headers):
+                        held.append(message)  # wait for the whole body
+                        return
+                elif message["type"] == "http.response.body" and held:
+                    chunks.append(message.get("body", b""))
+                    if message.get("more_body", False):
+                        return
+                    button = panel.toggle_button(self._prefix, record.id, len(t.statements))
+                    body = panel.inject(b"".join(chunks), button)
+                    start = held[0]
+                    headers = [
+                        (k, v) for k, v in start["headers"] if k.lower() != b"content-length"
+                    ]
+                    headers.append((b"content-length", str(len(body)).encode()))
+                    await send({**start, "headers": headers})
+                    await send({"type": "http.response.body", "body": body})
+                    return
                 await send(message)
 
             try:
@@ -128,6 +149,8 @@ class LoupeMiddleware:
         if scope["method"] not in {"GET", "HEAD"}:
             await _json(send, 405, {"error": "method not allowed"})
             return
+        if await panel.serve(send, self._prefix, rest):
+            return
         if rest == ["api", "requests"]:
             listed = [summary(r, self.config.analyzers) for r in self.store.newest_first()]
             await _json(send, 200, {"requests": listed})
@@ -162,6 +185,12 @@ class LoupeMiddleware:
         await asyncio.to_thread(capture_plans, [statement], options)
         assert statement.plan is not None
         await _json(send, 200, plan_to_dict(statement.plan))
+
+
+def _injectable(headers: list[tuple[bytes, bytes]]) -> bool:
+    """Only uncompressed HTML can have the toggle button added."""
+    values = {k.lower(): v.lower() for k, v in headers}
+    return b"text/html" in values.get(b"content-type", b"") and b"content-encoding" not in values
 
 
 async def _json(send: Send, status: int, body: Any) -> None:
