@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.0 (not yet released)
+
+First release.
 
 - `pgsql_loupe.trace()`: records every statement run inside the block (`with` or `async with`).
 - `pgsql_loupe.collectors.psycopg.instrument(conn)` and `instrument_async(conn)`: record psycopg 3

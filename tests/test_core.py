@@ -63,3 +63,9 @@ def test_replay_values_never_appear_in_repr_or_str() -> None:
     for text in (repr(replay), str(replay), repr(statement), str(statement)):
         assert secret not in text
     assert repr(replay) == "Replay(raw=False)"
+
+
+def test_version_matches_the_package_metadata() -> None:
+    from importlib.metadata import version
+
+    assert pgsql_loupe.__version__ == version("pgsql-loupe")

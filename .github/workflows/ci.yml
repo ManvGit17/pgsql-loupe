@@ -18,6 +18,15 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv run --group docs mkdocs build --strict
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+
   test:
     runs-on: ubuntu-latest
     strategy:
