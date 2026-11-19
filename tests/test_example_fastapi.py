@@ -1,4 +1,4 @@
-"""The examples/fastapi-psycopg app, run for real against PostgreSQL."""
+"""The examples/fastapi app on all three drivers, run for real against PostgreSQL."""
 
 from __future__ import annotations
 
@@ -10,14 +10,24 @@ from types import ModuleType
 import pytest
 from fastapi.testclient import TestClient
 
-EXAMPLE = Path(__file__).resolve().parent.parent / "examples" / "fastapi-psycopg" / "app.py"
+EXAMPLE = Path(__file__).resolve().parent.parent / "examples" / "fastapi" / "app.py"
 LOCAL = ("127.0.0.1", 50000)
 LOCAL_URL = "http://127.0.0.1:8000"
 
 
+DRIVERS = ["psycopg", "sqlalchemy", "asyncpg"]
+
+
+@pytest.fixture(params=DRIVERS)
+def driver(request: pytest.FixtureRequest) -> str:
+    value: str = request.param
+    return value
+
+
 @pytest.fixture
-def clean_env(monkeypatch: pytest.MonkeyPatch, pg_dsn: str) -> pytest.MonkeyPatch:
+def clean_env(monkeypatch: pytest.MonkeyPatch, pg_dsn: str, driver: str) -> pytest.MonkeyPatch:
     monkeypatch.setenv("DATABASE_URL", pg_dsn)
+    monkeypatch.setenv("EXAMPLE_DRIVER", driver)
     for name in ("PGSQL_LOUPE_ENABLED", "PGSQL_LOUPE_ALLOW_PRODUCTION", "PGSQL_LOUPE_ENV",
                  "APP_ENV", "ENVIRONMENT", "ENV"):  # fmt: skip
         monkeypatch.delenv(name, raising=False)
@@ -49,10 +59,11 @@ def test_request_returns_trace_id_and_json_has_its_statements(
 
     assert trace["id"] == lens_id
     assert (trace["method"], trace["path"], trace["status"]) == ("GET", "/artists/tracks", 200)
+    assert all(s["error"] is None for s in trace["statements"])
     statements = trace["statements"]
     assert len(statements) == 1 + len(artists)  # the deliberate N+1
     assert statements[0]["sql"] == "SELECT id, name FROM example_artists ORDER BY id"
-    assert statements[1]["params"] == [str(artists[0]["id"])]
+    assert list(_values(statements[1]["params"])) == [str(artists[0]["id"])]
     assert statements[1]["call_site"]["file"] == str(EXAMPLE)
     assert trace["statement_count"] == len(statements)
 
@@ -81,7 +92,9 @@ def test_plan_mode_on_the_example(clean_env: pytest.MonkeyPatch) -> None:
     assert trace["plan_note"] == f"{len(plans)} plan(s) captured"
 
 
-def test_nplus1_is_flagged_and_the_fixed_version_is_not(clean_env: pytest.MonkeyPatch) -> None:
+def test_nplus1_is_flagged_and_the_fixed_version_is_not(
+    clean_env: pytest.MonkeyPatch, driver: str
+) -> None:
     clean_env.setenv("PGSQL_LOUPE_ENABLED", "1")
     example = load_example()
     with TestClient(example.app, client=LOCAL, base_url=LOCAL_URL) as client:
@@ -98,7 +111,7 @@ def test_nplus1_is_flagged_and_the_fixed_version_is_not(clean_env: pytest.Monkey
     assert shape["fingerprint"] == (
         "select title from example_tracks where artist_id = ? order by id"
     )
-    loop_line = _line_of('artist["tracks"] = cur.execute(')
+    loop_line = _line_of(f"# N+1 ({driver})")
     assert shape["call_sites"] == [f"{EXAMPLE}:{loop_line}"]
     assert n1["statements"][1]["fingerprint"] == shape["fingerprint"]
     assert fixed["analysis"]["nplus1"] == []
@@ -107,6 +120,10 @@ def test_nplus1_is_flagged_and_the_fixed_version_is_not(clean_env: pytest.Monkey
         listed["/artists/tracks"]["nplus1_count"],
         listed["/artists/tracks-fixed"]["nplus1_count"],
     ) == (1, 0)
+
+
+def _values(params: list[str] | dict[str, str]) -> list[str]:
+    return list(params.values()) if isinstance(params, dict) else params
 
 
 def _line_of(text: str) -> int:

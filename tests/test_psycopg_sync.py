@@ -210,7 +210,7 @@ def test_a_broken_recorder_never_breaks_the_query(
     def explode(params: object) -> None:
         raise RuntimeError("bug in the tracer")
 
-    monkeypatch.setattr("pgsql_loupe.collectors.psycopg.redact_params", explode)
+    monkeypatch.setattr("pgsql_loupe.core.record.redact_params", explode)
     with pgsql_loupe.trace() as t:
         assert conn.execute("SELECT %s::int", (5,)).fetchone() == (5,)
     assert t.statements == []
