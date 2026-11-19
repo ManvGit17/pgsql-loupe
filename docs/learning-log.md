@@ -192,3 +192,40 @@
 4. Why does `= -1` become `= ?` while `a - 1` becomes `a - ?`?
 5. The fixed example endpoint uses `= ANY(%s)`. Why is that one statement no matter how many
    artists there are?
+
+## The panel (2026-11-19)
+
+**What was built**
+
+- `panel-src/`: a React + TypeScript app built with Vite. Request list (arrow keys move
+  through it), and for each request: summary, warnings (N+1, duplicates, slow statements,
+  plan flags) linking to statements, a timeline bar per statement, highlighted SQL with
+  parameters and the call site, the plan tree with triggers, and an Explain button.
+  Light and dark themes; `#<id>` in the URL opens a request directly.
+- The build (`panel.js`, `panel.css`) is committed inside the Python package and served by
+  the middleware at `/__lens/` with a strict Content-Security-Policy.
+- An optional "SQL" link injected into traced HTML pages, off by default.
+- A Playwright browser test that runs the example app under uvicorn, makes a request, opens
+  the panel and reads a statement's plan. CI gets two new jobs: `panel` and `e2e`.
+- `docs/adr/0005-panel.md`.
+
+**Why**
+
+- Committing the build means `pip install` users never need Node; CI rebuilds and checks the
+  committed files match, which works because the build is deterministic.
+- Only React and an icon set: every extra package is more to download, audit and update.
+- The CSP (`default-src 'none'`, then only `'self'`) makes "works offline" a rule the browser
+  enforces, and stops injected script even if a value in a trace contains HTML.
+- The browser test found nothing the API tests had missed, but a mutation (renaming the plan
+  tree's accessible name) made it fail, so it really checks what users see.
+
+**Quiz**
+
+1. Why is the panel's built JavaScript committed to the repository, and what stops it going
+   stale?
+2. What does the panel's Content-Security-Policy allow, and what attack does it limit?
+3. Why must injecting the toggle button recompute `Content-Length`, and why are compressed
+   responses skipped?
+4. Why are the browser tests excluded from the default `pytest` run?
+5. The e2e fixture writes uvicorn's output to a temporary file instead of a pipe. What could
+   go wrong with an unread pipe?
