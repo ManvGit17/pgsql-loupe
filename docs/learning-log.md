@@ -303,3 +303,39 @@
 4. Why does `assert_no_seq_scan` use plain `EXPLAIN` instead of `EXPLAIN ANALYZE`?
 5. A test creates its data inside one open transaction and calls `assert_no_seq_scan`. What
    happens, and why is failing better than passing here?
+
+## Docs and release preparation (2026-11-19)
+
+**What was built**
+
+- A docs site (`mkdocs.yml`, `docs/*.md`): quick start per driver, the panel and API, query
+  plans, pytest, recipes, configuration reference, safety model, overhead, and the ADRs.
+  Built with `--strict` in CI.
+- Version 0.1.0 with full package metadata; a test keeps `__version__` equal to it.
+- `release.yml`: on a `v*` tag, checks the tag matches the version, builds once and publishes
+  to PyPI with trusted publishing. `docs.yml`: manual GitHub Pages deploy.
+- A new README: screenshot, a complete app in "Try it", drivers, tests, a comparison table and
+  the overhead table.
+- `scripts/clean_install_check.py`: installs the built wheel into a fresh `python:3.13-slim`
+  container using the README's own commands and checks the panel works.
+- Ten good-first-issue drafts in `docs/good-first-issues.md`.
+- `docs/adr/0008-docs-and-release.md`.
+
+**Why**
+
+- Trusted publishing means no PyPI token is stored anywhere: GitHub proves to PyPI which
+  workflow is running (OpenID Connect), and PyPI only accepts that one.
+- The tag-equals-version check stops a mistyped tag from publishing the wrong version.
+- The clean-machine check reads the README rather than a copy of it, so a wrong README fails
+  the check. It found that a slim image needs `psycopg[binary]`, so the README says so.
+- The build announced that Material for MkDocs reaches end of life on 5 May 2027; the ADR
+  records the move to Zensical before then.
+- A claim in the docs ("works with any ASGI app") got its own test before being published.
+
+**Quiz**
+
+1. How does PyPI trusted publishing avoid storing a token, and what must be set up once on PyPI?
+2. Why does the release workflow compare the git tag with the package version?
+3. Why does the clean-machine check make its requests from inside the container?
+4. Why must the README's install line include `psycopg[binary]` on a slim image?
+5. What does `mkdocs build --strict` catch that a normal build does not?
