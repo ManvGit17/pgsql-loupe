@@ -18,6 +18,8 @@ psycopg = ["psycopg>=3.3,<4"]
 
 [dependency-groups]
 dev = [
+    "fastapi==0.165.0",
+    "httpx==0.28.1",
     "mypy==2.4.1",
     "psycopg-pool==3.3.3",
     "psycopg[binary]==3.3.9",
@@ -43,7 +45,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.mypy]
 strict = true
-files = ["src", "tests", "scripts"]
+files = ["src", "tests", "scripts", "examples"]
 # Template strings (t"...") only parse on Python 3.14+; mypy runs on 3.13 here.
 exclude = ['tests/test_psycopg_py314\.py']
 
