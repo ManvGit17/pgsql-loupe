@@ -1,0 +1,26 @@
+# Test databases. `docker compose up -d --wait`, then TEST_PG_DSN=postgresql://test:test@127.0.0.1:54318/test
+x-pg: &pg
+  environment:
+    POSTGRES_USER: test
+    POSTGRES_PASSWORD: test
+    POSTGRES_DB: test
+  tmpfs:
+    - /var/lib/postgresql
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U test -d test"]
+    interval: 1s
+    retries: 30
+
+services:
+  pg16:
+    <<: *pg
+    image: postgres:16.16
+    ports: ["54316:5432"]
+  pg17:
+    <<: *pg
+    image: postgres:17.12
+    ports: ["54317:5432"]
+  pg18:
+    <<: *pg
+    image: postgres:18.7
+    ports: ["54318:5432"]
