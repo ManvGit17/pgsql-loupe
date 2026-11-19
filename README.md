@@ -1,4 +1,4 @@
-# sqlloupe
+# pgsql-loupe
 
 A debug panel for Python web apps on PostgreSQL: every statement a request ran, with
 parameters, timings, `EXPLAIN ANALYZE` plans, fired triggers and N+1 warnings.

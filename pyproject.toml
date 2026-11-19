@@ -1,5 +1,5 @@
 [project]
-name = "sqlloupe"
+name = "pgsql-loupe"
 version = "0.0.0"
 description = "Debug panel for Python web apps on PostgreSQL: statements, plans, triggers and N+1 warnings per request."
 readme = "README.md"

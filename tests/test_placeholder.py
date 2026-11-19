@@ -4,11 +4,11 @@ import os
 
 import psycopg
 
-import sqlloupe
+import pgsql_loupe
 
 
 def test_package_imports() -> None:
-    assert sqlloupe.__version__
+    assert pgsql_loupe.__version__
 
 
 def test_real_postgres_is_reachable(pg_dsn: str) -> None:
