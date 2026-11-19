@@ -160,3 +160,35 @@
 3. With `analyze_writes=True`, how can a test prove the user's `UPDATE` ran exactly once?
 4. Why can't the replay see a temporary table the request created?
 5. What is DNS rebinding, and why does checking the `Host` header stop it here?
+
+## N+1 and duplicate detection (2026-11-19)
+
+**What was built**
+
+- `analyzers/fingerprint.py`: a tokenizer that turns SQL into its *shape*: values and
+  placeholders become `?`, value lists become `(...)`, comments go, words are lower cased.
+  50 table-driven test cases cover PostgreSQL's quoting rules.
+- `analyzers/report.py`: per request, N+1 suspects (one shape run 3+ times with different
+  values, with call sites), exact duplicates (same SQL and values), slow statements, and a
+  summary (count, database time, share of the request spent in the database).
+- The JSON API now returns `analysis` and a `fingerprint` per statement; the example has a
+  deliberate N+1 endpoint and a fixed one.
+- `docs/adr/0004-sql-fingerprint.md`.
+
+**Why**
+
+- An N+1 is the same statement with different values, so the detector needs a way to see
+  "same statement" through different literals and placeholder styles.
+- A hand-written tokenizer instead of `sqlglot`: grouping needs tokens, not a full parse, and
+  a fast-moving 810 KB dependency would cost more than ~150 tested lines.
+- Duplicates are compared on raw values: redacted passwords all look alike.
+- `executemany` is the batched fix for an N+1, so it never counts as one.
+
+**Quiz**
+
+1. Why must `id = 5`, `id = %s` and `id = $1` produce the same fingerprint?
+2. What is the difference between an N+1 and an exact duplicate, and how is each fixed?
+3. Why are duplicates compared on raw values rather than the stored, redacted ones?
+4. Why does `= -1` become `= ?` while `a - 1` becomes `a - ?`?
+5. The fixed example endpoint uses `= ANY(%s)`. Why is that one statement no matter how many
+   artists there are?

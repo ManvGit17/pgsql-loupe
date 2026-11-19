@@ -14,5 +14,9 @@
   separate connection. Reads are analysed in a read-only transaction; writes get a plain `EXPLAIN`
   unless `analyze_writes=True` (rolled back). Plans list fired triggers and flag large
   sequential scans, bad row estimates and spills to disk.
+- Analyzers: N+1 shapes (same fingerprint, 3+ runs, different values), exact duplicates, slow
+  statements and a per-request summary (statement count, database time, share of request time).
+  Served as `analysis` in `GET /__lens/api/requests/{id}`; each statement has a `fingerprint`.
+  Thresholds: `LoupeConfig(analyzers=AnalyzerOptions(...))`.
 - The default authorisation now also requires a local `Host` header (DNS-rebinding protection).
 - Install the psycopg collector with `pip install pgsql-loupe[psycopg]`.
