@@ -31,14 +31,43 @@ def _library_prefixes() -> tuple[str, ...]:
 _PREFIXES = _library_prefixes()
 
 
-def find_call_site(start: FrameType | None = None) -> CallSite | None:
-    """First frame, walking outwards, whose file is not library code."""
-    frame: FrameType | None = start if start is not None else sys._getframe(1)
+# Whether a file is library code never changes while the process runs; caching it keeps the
+# per-statement cost to one dictionary lookup per stack frame (measured in bench/overhead.py).
+_IS_LIBRARY: dict[str, bool] = {}
+
+
+def _is_library(filename: str) -> bool:
+    known = _IS_LIBRARY.get(filename)
+    if known is None:
+        known = filename.startswith("<") or os.path.normcase(os.path.abspath(filename)).startswith(
+            _PREFIXES
+        )
+        _IS_LIBRARY[filename] = known
+    return known
+
+
+def _walk(frame: FrameType | None) -> CallSite | None:
     while frame is not None:
-        filename = frame.f_code.co_filename
-        if not filename.startswith("<"):
-            normalised = os.path.normcase(os.path.abspath(filename))
-            if not normalised.startswith(_PREFIXES):
-                return CallSite(filename, frame.f_lineno, frame.f_code.co_name)
+        if not _is_library(frame.f_code.co_filename):
+            return CallSite(frame.f_code.co_filename, frame.f_lineno, frame.f_code.co_name)
         frame = frame.f_back
     return None
+
+
+def find_call_site(start: FrameType | None = None) -> CallSite | None:
+    """First frame, walking outwards, whose file is not library code.
+
+    SQLAlchemy's async engines run the driver call in a child greenlet, whose stack ends
+    inside SQLAlchemy; the user's code is in the parent greenlet's (suspended) frames.
+    """
+    site = _walk(start if start is not None else sys._getframe(1))
+    if site is not None:
+        return site
+    greenlet_module = sys.modules.get("greenlet")
+    if greenlet_module is None:
+        return None
+    current = greenlet_module.getcurrent()
+    while site is None and current.parent is not None:
+        current = current.parent
+        site = _walk(current.gr_frame)
+    return site

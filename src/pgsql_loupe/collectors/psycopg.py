@@ -14,14 +14,12 @@ Two rules hold everywhere in this module:
 from __future__ import annotations
 
 import sys
-import time
 from collections.abc import (
     AsyncIterator,
     Awaitable,
     Callable,
     Iterable,
     Iterator,
-    Mapping,
     Sequence,
 )
 from contextlib import asynccontextmanager, contextmanager
@@ -30,9 +28,9 @@ from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar
 
 import psycopg
 
-from pgsql_loupe.core.callsite import find_call_site
+from pgsql_loupe.core.record import SKIP_ATTRIBUTE, Recording, begin, copy_params
 from pgsql_loupe.core.redact import redact_params
-from pgsql_loupe.core.trace import Replay, Statement, StatementKind, Trace, current_trace
+from pgsql_loupe.core.trace import Replay, StatementKind, Trace, current_trace
 
 if sys.version_info >= (3, 14):
     from string.templatelib import Template
@@ -87,19 +85,10 @@ _RAW_CURSORS = (
 )
 
 
-def _copy_params(params: Any) -> Any:
-    """A shallow copy, so later changes to the caller's list or dict don't alter the replay."""
-    if isinstance(params, Mapping):
-        return dict(params)
-    if isinstance(params, Sequence) and not isinstance(params, (str, bytes)):
-        return tuple(params)
-    return params
-
-
 def _replay(cursor: Any, query: Any, params: Any) -> Replay:
     if Template is not None and isinstance(query, Template):
         params = None  # the values live inside the template
-    return Replay(query=query, params=_copy_params(params), raw=isinstance(cursor, _RAW_CURSORS))
+    return Replay(query=query, params=copy_params(params), raw=isinstance(cursor, _RAW_CURSORS))
 
 
 def _rowcount(cursor: Any) -> int | None:
@@ -107,51 +96,27 @@ def _rowcount(cursor: Any) -> int | None:
     return count if isinstance(count, int) and count >= 0 else None
 
 
-class _Recording:
-    """A statement that has started; `finish` or `fail` completes it."""
-
-    __slots__ = ("started_ns", "statement")
-
-    def __init__(self, statement: Statement, started_ns: int) -> None:
-        self.statement = statement
-        self.started_ns = started_ns
-
-    def _stop(self) -> None:
-        self.statement.duration_ms = (time.perf_counter_ns() - self.started_ns) / 1_000_000
-
-    def finish(self, rowcount: int | None) -> None:
-        self._stop()
-        self.statement.rowcount = rowcount
-
-    def fail(self, exc: BaseException) -> None:
-        self._stop()
-        self.statement.error = type(exc).__name__
-        self.statement.sqlstate = getattr(exc, "sqlstate", None)
-        self.statement.error_message = (str(exc).splitlines() or [""])[0][:500]
-
-
 def _begin(
     trace: Trace, cursor: Any, kind: StatementKind, query: Any, params: Any
-) -> _Recording | None:
+) -> Recording | None:
+    if getattr(cursor, SKIP_ATTRIBUTE, False):
+        return None  # SQLAlchemy is recording this statement already
     try:
         conn = cursor.connection
         text, shown = _describe(query, params, conn)
         info = conn.info
-        started = time.perf_counter_ns()
-        statement = Statement(
-            sql=text,
-            params=redact_params(shown),
+        return begin(
+            trace,
             kind=kind,
-            start_ms=trace.elapsed_ms(started),
-            call_site=find_call_site(sys._getframe(1)),
+            sql=text,
+            shown_params=shown,
+            replay=_replay(cursor, query, params),
             tx_status=info.transaction_status.name,
             backend_pid=info.backend_pid or None,
-            replay=_replay(cursor, query, params),
+            frame=sys._getframe(1),
         )
     except Exception:  # never let the tracer break the user's query
         return None
-    trace.statements.append(statement)
-    return _Recording(statement, started)
 
 
 def _record_sync(
@@ -205,7 +170,7 @@ class _CountingParams:
 
 def _begin_many(
     cursor: Any, query: Any, params_seq: Iterable[Any]
-) -> tuple[_Recording | None, Iterable[Any], _CountingParams | None]:
+) -> tuple[Recording | None, Iterable[Any], _CountingParams | None]:
     trace = current_trace()
     if trace is None:
         return None, params_seq, None
@@ -219,7 +184,7 @@ def _begin_many(
     return _begin(trace, cursor, "executemany", query, None), counter, counter
 
 
-def _finish_many(rec: _Recording, cursor: Any, counter: _CountingParams | None) -> None:
+def _finish_many(rec: Recording, cursor: Any, counter: _CountingParams | None) -> None:
     if counter is not None:
         rec.statement.param_sets = counter.count
         rec.statement.params = redact_params(counter.first)
