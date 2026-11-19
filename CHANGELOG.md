@@ -22,5 +22,11 @@
   sites, plan tree with triggers and flags, N+1 and duplicate warnings, an Explain button,
   keyboard navigation, light and dark themes. Ships built inside the package; no Node needed.
 - `LoupeConfig(inject_toggle=True)`: adds a link to the panel on traced HTML pages (off by default).
+- SQLAlchemy 2 collector: `pgsql_loupe.collectors.sqlalchemy.instrument_engine(engine)` for sync
+  and async engines on any PostgreSQL driver; statements are never recorded twice when the
+  psycopg collector is also active. Install with `pip install pgsql-loupe[sqlalchemy]`.
+- asyncpg collector: `pgsql_loupe.collectors.asyncpg.TracedConnection` (pass as
+  `connection_class`) and `traced_connection_class()`. Install with `pip install pgsql-loupe[asyncpg]`.
+- `bench/overhead.py` and its results; the README's overhead table comes from it.
 - The default authorisation now also requires a local `Host` header (DNS-rebinding protection).
 - Install the psycopg collector with `pip install pgsql-loupe[psycopg]`.

@@ -19,3 +19,6 @@ uv run playwright install chromium && uv run pytest -m e2e
 Commit the rebuilt `src/pgsql_loupe/panel/` files with your change.
 
 Tests use a real PostgreSQL, never a mock. Public API changes need an entry in `CHANGELOG.md`.
+
+Performance numbers in the README come only from `uv run python bench/overhead.py`; commit its
+output file from `bench/results/` with any change to them.

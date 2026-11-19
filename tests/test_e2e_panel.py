@@ -20,7 +20,7 @@ from playwright.sync_api import Page, expect
 
 pytestmark = pytest.mark.e2e
 
-EXAMPLE_DIR = Path(__file__).resolve().parent.parent / "examples" / "fastapi-psycopg"
+EXAMPLE_DIR = Path(__file__).resolve().parent.parent / "examples" / "fastapi"
 
 
 def free_port() -> int:
