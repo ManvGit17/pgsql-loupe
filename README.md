@@ -9,15 +9,17 @@ for how it compares with existing tools.
 ## Quick start (FastAPI + psycopg)
 
 ```python
-from pgsql_loupe.asgi import install
+from pgsql_loupe.asgi import ExplainOptions, LoupeConfig, install
 from pgsql_loupe.collectors.psycopg import instrument
 
 pool = ConnectionPool(dsn, configure=instrument)
-install(app)
+install(app, LoupeConfig(explain=ExplainOptions(dsn=dsn)))
 ```
 
 Run with `PGSQL_LOUPE_ENABLED=1`, request any page with `?lens=1`, then open
-`/__lens/api/requests/<X-Lens-Id>`. It is off by default, refuses to start when the
+`/__lens/api/requests/<X-Lens-Id>`. Use `?lens=plan` to also capture `EXPLAIN ANALYZE`
+plans and fired triggers (see [docs/adr/0003-plan-capture-safety.md](docs/adr/0003-plan-capture-safety.md)
+for how writes are kept safe). It is off by default, refuses to start when the
 environment says production, and only answers requests from localhost.
 
 Licence: Apache-2.0.

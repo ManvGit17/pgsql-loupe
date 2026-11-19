@@ -7,8 +7,16 @@ from typing import Any
 
 from pgsql_loupe.asgi.config import LoupeConfig, ProductionGuardError, localhost_only
 from pgsql_loupe.asgi.middleware import LoupeMiddleware
+from pgsql_loupe.explain.capture import ExplainOptions
 
-__all__ = ["LoupeConfig", "LoupeMiddleware", "ProductionGuardError", "install", "localhost_only"]
+__all__ = [
+    "ExplainOptions",
+    "LoupeConfig",
+    "LoupeMiddleware",
+    "ProductionGuardError",
+    "install",
+    "localhost_only",
+]
 
 
 def install(

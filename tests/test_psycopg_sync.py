@@ -14,7 +14,7 @@ from pgsql_loupe.collectors.psycopg import instrument
 
 Conn = psycopg.Connection[Any]
 
-# The ten statements of the Phase 1 "done when" check.
+# Ten mixed statements, used by the sync and async collector tests.
 TEN: list[tuple[str, Any]] = [
     ("CREATE TEMP TABLE t (id int PRIMARY KEY, name text)", None),
     ("INSERT INTO t VALUES (%s, %s)", (1, "a")),

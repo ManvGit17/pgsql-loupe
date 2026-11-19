@@ -7,6 +7,8 @@ from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass
 from typing import Any
 
+from pgsql_loupe.explain.capture import ExplainOptions
+
 Scope = MutableMapping[str, Any]
 
 ENABLED_VAR = "PGSQL_LOUPE_ENABLED"
@@ -14,6 +16,7 @@ ALLOW_PRODUCTION_VAR = "PGSQL_LOUPE_ALLOW_PRODUCTION"
 ENVIRONMENT_VARS = ("PGSQL_LOUPE_ENV", "APP_ENV", "ENVIRONMENT", "ENV")
 PRODUCTION_VALUES = frozenset({"prod", "production", "live"})
 LOCAL_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+LOCAL_HOST_NAMES = frozenset({"127.0.0.1", "[::1]", "localhost"})
 FORWARDED_HEADERS = frozenset({b"forwarded", b"x-forwarded-for", b"x-real-ip"})
 
 
@@ -29,12 +32,26 @@ def localhost_only(scope: Scope) -> bool:
     """Allow direct requests from this machine only.
 
     A request with a forwarding header is refused: behind a reverse proxy running on the
-    same machine, every client would otherwise appear to come from 127.0.0.1.
+    same machine, every client would otherwise appear to come from 127.0.0.1. The Host
+    header must name this machine too, which defeats DNS rebinding.
     """
     client = scope.get("client")
     if not client or client[0] not in LOCAL_HOSTS:
         return False
-    return not any(name.lower() in FORWARDED_HEADERS for name, _ in scope.get("headers", []))
+    for name, value in scope.get("headers", []):
+        name = name.lower()
+        if name in FORWARDED_HEADERS:
+            return False
+        if name == b"host" and _host_name(value) not in LOCAL_HOST_NAMES:
+            return False  # a DNS-rebinding page reaches 127.0.0.1 under its own host name
+    return True
+
+
+def _host_name(value: bytes) -> str:
+    host = value.decode("latin-1").strip().lower()
+    if host.startswith("["):  # [::1]:8000
+        return host.split("]", 1)[0] + "]"
+    return host.rsplit(":", 1)[0] if host.count(":") == 1 else host
 
 
 @dataclass(frozen=True)
@@ -49,6 +66,8 @@ class LoupeConfig:
     environment_vars: tuple[str, ...] = ENVIRONMENT_VARS
     allow_production: bool | None = None
     """None: read PGSQL_LOUPE_ALLOW_PRODUCTION."""
+    explain: ExplainOptions | None = None
+    """Plan capture settings. None: ?lens=plan records statements only."""
 
     def is_enabled(self, environ: Mapping[str, str] | None = None) -> bool:
         env = os.environ if environ is None else environ

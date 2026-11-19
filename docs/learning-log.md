@@ -1,6 +1,6 @@
 # Learning log
 
-## Phase 0: is it worth building? (2026-11-18)
+## Prior art and scaffold (2026-11-18)
 
 **What was built**
 
@@ -24,7 +24,7 @@
 - Every existing panel hooks SQLAlchemy. A tool that hooks the driver (psycopg's cursor,
   asyncpg's logger) also sees raw SQL, which is the gap SQL Lens fills.
 - PostgreSQL's `auto_explain` proves the server can report plans *and* triggers for the
-  statement as it really ran, with no replay. That idea matters for Phase 3.
+  statement as it really ran, with no replay. That idea matters for plan capture.
 - The placeholder test fails, rather than skips, without a database, and checks the server
   version. Each matrix job therefore proves it ran against the version it claims.
 
@@ -40,7 +40,7 @@
    what is not undone by the rollback?
 5. The CI test job sets `EXPECT_PG_MAJOR`. What mistake would go unnoticed without it?
 
-## Phase 1: the trace and the psycopg collector (2026-11-19)
+## The trace and the psycopg collector (2026-11-19)
 
 **What was built**
 
@@ -81,7 +81,7 @@
    statements land in different traces.
 5. Why does `stream()` treat `GeneratorExit` differently from other exceptions?
 
-## Phase 2: ASGI middleware and JSON output (2026-11-19)
+## ASGI middleware and JSON output (2026-11-19)
 
 **What was built**
 
@@ -100,7 +100,7 @@
 - A pure ASGI middleware calls the app in the same asyncio task, so the trace ContextVar is
   visible in the endpoint. FastAPI runs `def` endpoints in a thread pool but copies the
   context first, which is why the example's sync endpoints are traced too.
-- Authorisation guards *activation*, not only the API: in Phase 3, `?lens=plan` will run
+- Authorisation guards *activation*, not only the API: once plan capture exists, `?lens=plan` will run
   `EXPLAIN ANALYZE`, so a stranger must not be able to turn it on.
 - "Localhost only" is broken by a reverse proxy on the same machine (every request then
   comes from 127.0.0.1), so a request with `X-Forwarded-For` or `Forwarded` counts as remote.
@@ -120,3 +120,43 @@
    statements still recorded into the request's trace?
 4. Why is `Server-Timing` sometimes lower than the database time in the stored trace?
 5. Why does the production guard run inside `install()` instead of on the first request?
+
+## Plans and triggers (2026-11-19)
+
+**What was built**
+
+- `explain/safety.py`: sorts a statement into *read*, *write* or *not explainable* from its
+  first keyword and a search for write keywords.
+- `explain/capture.py`: replays a recorded statement with its original parameters, under
+  `EXPLAIN`, on a separate connection. Reads: `EXPLAIN (ANALYZE, BUFFERS)` in a `READ ONLY`
+  transaction. Writes: plain `EXPLAIN` (not executed), or `ANALYZE` in a rolled-back
+  transaction when `analyze_writes=True`. Each replay has a statement and lock timeout.
+- `explain/plan.py` and `flags.py`: the JSON plan as a tree (time per node, expected vs actual
+  rows, buffers, triggers that fired) and three warnings: big sequential scans, row estimates
+  off by 10x or more, sorts or hashes that spilled to disk.
+- `?lens=plan` captures plans after the response is sent; `POST .../statements/{n}/explain`
+  captures one on demand.
+- `docs/adr/0003-plan-capture-safety.md`.
+
+**Why**
+
+- `EXPLAIN ANALYZE` *runs* the statement. A separate connection means plan capture can never
+  touch the user's transaction, locks or data.
+- A read-only transaction closes a hole: a `SELECT` can still write, through `nextval()` or a
+  function that inserts. Tested: both fail in read-only mode and change nothing.
+- The classifier only ever errs towards safety: a stray keyword makes a read look like a
+  write (losing `ANALYZE`), never the other way round.
+- The API must never serve raw parameters, but replays need them. They live in
+  `Statement.replay`, which the JSON serialiser leaves out; a test proves a password value
+  never appears in any response, and a mutation check proves that test can fail.
+- Two browser attacks on a localhost tool: a cross-site `POST` (blocked by requiring an
+  `X-Lens` header, which needs a CORS preflight) and DNS rebinding (blocked by requiring a
+  local `Host` header).
+
+**Quiz**
+
+1. Why does plan capture use its own connection instead of the user's?
+2. Give two ways a plain `SELECT` can change data, and what stops them during capture.
+3. With `analyze_writes=True`, how can a test prove the user's `UPDATE` ran exactly once?
+4. Why can't the replay see a temporary table the request created?
+5. What is DNS rebinding, and why does checking the `Host` header stop it here?

@@ -3,6 +3,7 @@
 PGSQL_LOUPE_ENABLED=1 DATABASE_URL=postgresql://... uvicorn app:app
 curl -i "http://127.0.0.1:8000/artists?lens=1"          # note the X-Lens-Id header
 curl "http://127.0.0.1:8000/__lens/api/requests/<id>"
+curl -i "http://127.0.0.1:8000/artists?lens=plan"        # also captures EXPLAIN plans
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from fastapi import FastAPI
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from pgsql_loupe.asgi import install
+from pgsql_loupe.asgi import ExplainOptions, LoupeConfig, install
 from pgsql_loupe.collectors.psycopg import instrument
 
 DSN = os.environ.get("DATABASE_URL", "postgresql://test:test@127.0.0.1:54318/test")
@@ -45,7 +46,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(lifespan=lifespan)
-install(app)  # line 2 of the setup
+install(app, LoupeConfig(explain=ExplainOptions(dsn=DSN)))  # line 2 of the setup
 
 
 @app.get("/artists")

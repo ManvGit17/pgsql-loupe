@@ -15,7 +15,15 @@ from __future__ import annotations
 
 import sys
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Sequence
+from collections.abc import (
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+    Sequence,
+)
 from contextlib import asynccontextmanager, contextmanager
 from functools import partial
 from typing import TYPE_CHECKING, Any, TypeAlias, TypeVar
@@ -24,7 +32,7 @@ import psycopg
 
 from pgsql_loupe.core.callsite import find_call_site
 from pgsql_loupe.core.redact import redact_params
-from pgsql_loupe.core.trace import Statement, StatementKind, Trace, current_trace
+from pgsql_loupe.core.trace import Replay, Statement, StatementKind, Trace, current_trace
 
 if sys.version_info >= (3, 14):
     from string.templatelib import Template
@@ -71,6 +79,29 @@ def _describe(query: Any, params: Any, conn: Any) -> tuple[str, Any]:
     return str(query), params
 
 
+_RAW_CURSORS = (
+    psycopg.RawCursor,
+    psycopg.AsyncRawCursor,
+    psycopg.RawServerCursor,
+    psycopg.AsyncRawServerCursor,
+)
+
+
+def _copy_params(params: Any) -> Any:
+    """A shallow copy, so later changes to the caller's list or dict don't alter the replay."""
+    if isinstance(params, Mapping):
+        return dict(params)
+    if isinstance(params, Sequence) and not isinstance(params, (str, bytes)):
+        return tuple(params)
+    return params
+
+
+def _replay(cursor: Any, query: Any, params: Any) -> Replay:
+    if Template is not None and isinstance(query, Template):
+        params = None  # the values live inside the template
+    return Replay(query=query, params=_copy_params(params), raw=isinstance(cursor, _RAW_CURSORS))
+
+
 def _rowcount(cursor: Any) -> int | None:
     count = cursor.rowcount
     return count if isinstance(count, int) and count >= 0 else None
@@ -115,6 +146,7 @@ def _begin(
             call_site=find_call_site(sys._getframe(1)),
             tx_status=info.transaction_status.name,
             backend_pid=info.backend_pid or None,
+            replay=_replay(cursor, query, params),
         )
     except Exception:  # never let the tracer break the user's query
         return None
@@ -191,6 +223,8 @@ def _finish_many(rec: _Recording, cursor: Any, counter: _CountingParams | None) 
     if counter is not None:
         rec.statement.param_sets = counter.count
         rec.statement.params = redact_params(counter.first)
+        if rec.statement.replay is not None:
+            rec.statement.replay = _replay(cursor, rec.statement.replay.query, counter.first)
     rec.finish(_rowcount(cursor))
 
 

@@ -36,7 +36,7 @@ and no trigger data.
   It never stores parameter values and has no plans.
 - **auto_explain** is the only tool that shows plans with triggers, and it covers
   every driver. It writes to the server log with no per-request view, and needs
-  superuser rights or server configuration. Worth keeping in mind for Phase 3: it
+  superuser rights or server configuration. Worth keeping in mind for plan capture: it
   explains the *real* execution instead of replaying it.
 - **Starting point (tuple-beat `lens.py`)**: psycopg 3 sync only, called explicitly
   through `lens.run()`. In `plan` mode every statement, writes included, runs once
