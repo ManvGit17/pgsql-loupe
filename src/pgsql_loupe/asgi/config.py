@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Mapping, MutableMapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
+from pgsql_loupe.analyzers import AnalyzerOptions
 from pgsql_loupe.explain.capture import ExplainOptions
 
 Scope = MutableMapping[str, Any]
@@ -68,6 +69,8 @@ class LoupeConfig:
     """None: read PGSQL_LOUPE_ALLOW_PRODUCTION."""
     explain: ExplainOptions | None = None
     """Plan capture settings. None: ?lens=plan records statements only."""
+    analyzers: AnalyzerOptions = field(default_factory=AnalyzerOptions)
+    """Thresholds for N+1 and slow-statement warnings."""
 
     def is_enabled(self, environ: Mapping[str, str] | None = None) -> bool:
         env = os.environ if environ is None else environ

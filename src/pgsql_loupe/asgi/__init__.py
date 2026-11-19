@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from pgsql_loupe.analyzers import AnalyzerOptions
 from pgsql_loupe.asgi.config import LoupeConfig, ProductionGuardError, localhost_only
 from pgsql_loupe.asgi.middleware import LoupeMiddleware
 from pgsql_loupe.explain.capture import ExplainOptions
 
 __all__ = [
+    "AnalyzerOptions",
     "ExplainOptions",
     "LoupeConfig",
     "LoupeMiddleware",

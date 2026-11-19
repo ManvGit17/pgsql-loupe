@@ -129,12 +129,13 @@ class LoupeMiddleware:
             await _json(send, 405, {"error": "method not allowed"})
             return
         if rest == ["api", "requests"]:
-            await _json(send, 200, {"requests": [summary(r) for r in self.store.newest_first()]})
+            listed = [summary(r, self.config.analyzers) for r in self.store.newest_first()]
+            await _json(send, 200, {"requests": listed})
             return
         if len(rest) == 3 and rest[:2] == ["api", "requests"]:
             record = self.store.get(rest[2])
             if record is not None:
-                await _json(send, 200, detail(record))
+                await _json(send, 200, detail(record, self.config.analyzers))
                 return
         await _json(send, 404, {"error": "not found"})
 
