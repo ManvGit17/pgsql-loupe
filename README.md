@@ -31,6 +31,22 @@ for how writes are kept safe). Each trace also lists N+1 patterns, duplicate que
 slow statements. It is off by default, refuses to start when the
 environment says production, and only answers requests from localhost.
 
+## In tests (pytest)
+
+Installing the package adds a `loupe` fixture:
+
+```python
+def test_artists_page(loupe, client):
+    with loupe.record() as r:
+        client.get("/artists/tracks")
+    r.assert_max_queries(2)
+    r.assert_no_nplus1()
+    r.assert_no_seq_scan("tracks")  # needs --pgsql-loupe-dsn or PGSQL_LOUPE_TEST_DSN
+```
+
+A failing assertion lists each statement with its parameters, the line of your code that ran
+it, and its time.
+
 ## Overhead
 
 Measured by [`bench/overhead.py`](bench/overhead.py); full output, machine and versions in
