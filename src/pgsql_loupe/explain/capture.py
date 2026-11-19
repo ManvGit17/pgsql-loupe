@@ -33,6 +33,8 @@ PLAIN_OPTIONS = "FORMAT JSON"
 class ExplainOptions:
     dsn: str
     """Connection used for replays. Never the application's own connection."""
+    analyze_reads: bool = True
+    """Run reads under EXPLAIN ANALYZE (read-only transaction). False: plain EXPLAIN only."""
     analyze_writes: bool = False
     """Run INSERT/UPDATE/DELETE under EXPLAIN ANALYZE (in a rolled-back transaction)."""
     timeout_ms: int = 5_000
@@ -68,7 +70,7 @@ def explain_statement(
             mode="skipped",
             error="only SELECT, INSERT, UPDATE, DELETE, MERGE and WITH are explained",
         )
-    analyze = kind == "read" or options.analyze_writes
+    analyze = options.analyze_reads if kind == "read" else options.analyze_writes
     read_only = kind == "read" or not analyze
     cursor_class: type[psycopg.Cursor[Any]] = psycopg.RawCursor if replay.raw else psycopg.Cursor
     try:

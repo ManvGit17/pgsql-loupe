@@ -27,6 +27,10 @@
   psycopg collector is also active. Install with `pip install pgsql-loupe[sqlalchemy]`.
 - asyncpg collector: `pgsql_loupe.collectors.asyncpg.TracedConnection` (pass as
   `connection_class`) and `traced_connection_class()`. Install with `pip install pgsql-loupe[asyncpg]`.
+- pytest plugin (entry point `pytest11`): `loupe` fixture with `record()`, `assert_max_queries`,
+  `assert_num_queries`, `assert_no_nplus1` and `assert_no_seq_scan`; failures list statements and
+  call sites. Options: `--pgsql-loupe-dsn`, ini `pgsql_loupe_dsn`, `PGSQL_LOUPE_TEST_DSN`.
+- `ExplainOptions(analyze_reads=False)`: plain EXPLAIN for reads too.
 - `bench/overhead.py` and its results; the README's overhead table comes from it.
 - The default authorisation now also requires a local `Host` header (DNS-rebinding protection).
 - Install the psycopg collector with `pip install pgsql-loupe[psycopg]`.

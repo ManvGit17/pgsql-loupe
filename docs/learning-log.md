@@ -270,3 +270,36 @@
 4. Why can an exception inside a `handle_error` listener be worse than the original bug?
 5. Why does the benchmark interleave setups request by request instead of running each setup
    for ten seconds in turn?
+
+## The pytest plugin (2026-11-19)
+
+**What was built**
+
+- `testing.py`: `QueryRecorder`, with `record()` for a block and four assertions:
+  `assert_max_queries`, `assert_num_queries`, `assert_no_nplus1`, `assert_no_seq_scan`.
+- `pytest_plugin.py`: the `loupe` fixture and the `--pgsql-loupe-dsn` option, registered
+  through the `pytest11` entry point in `pyproject.toml`.
+- Tests that run a separate pytest process with only the installed package, proving the
+  entry point works and that a failure prints statements and call sites.
+- `docs/adr/0007-pytest-plugin.md`.
+
+**Why**
+
+- An entry point means installing is enough; that is how plugins like pytest-asyncio load.
+- Starlette's `TestClient` runs the app in another thread. A probe showed anyio passes the
+  test's context into it, so the fixture's trace sees requests on all three drivers.
+- `BEGIN`/`COMMIT` are not counted, so the same budget passes on psycopg and asyncpg.
+- `assert_no_seq_scan` uses plain `EXPLAIN` so it never runs the test's queries again, and
+  fails if it cannot explain a statement rather than passing silently.
+- Two traps found while testing: a fixture dropping a table hung forever behind the test
+  connection's open transaction (fixed by tearing down in the right order, plus a lock
+  timeout), and `fnmatch` patterns treat `[...]` as a character class.
+
+**Quiz**
+
+1. What does the `pytest11` entry point do, and why must the plugin module be cheap to import?
+2. Why does `loupe.record()` exist when the fixture already records the whole test?
+3. Why are `BEGIN` and `COMMIT` left out of the count by default?
+4. Why does `assert_no_seq_scan` use plain `EXPLAIN` instead of `EXPLAIN ANALYZE`?
+5. A test creates its data inside one open transaction and calls `assert_no_seq_scan`. What
+   happens, and why is failing better than passing here?
