@@ -6,6 +6,14 @@ parameters, timings, `EXPLAIN ANALYZE` plans, fired triggers and N+1 warnings.
 **Status:** early development; nothing usable yet. See [docs/prior-art.md](docs/prior-art.md)
 for how it compares with existing tools.
 
+## Drivers
+
+| Driver | Setup |
+|---|---|
+| psycopg 3 | `ConnectionPool(dsn, configure=instrument)` or `instrument(conn)` |
+| SQLAlchemy 2 (sync or async) | `instrument_engine(engine)` |
+| asyncpg | `asyncpg.create_pool(dsn, connection_class=TracedConnection)` |
+
 ## Quick start (FastAPI + psycopg)
 
 ```python
@@ -22,5 +30,17 @@ plans and fired triggers (see [docs/adr/0003-plan-capture-safety.md](docs/adr/00
 for how writes are kept safe). Each trace also lists N+1 patterns, duplicate queries and
 slow statements. It is off by default, refuses to start when the
 environment says production, and only answers requests from localhost.
+
+## Overhead
+
+Measured by [`bench/overhead.py`](bench/overhead.py); full output, machine and versions in
+[`bench/results/2026-11-19-windows.md`](bench/results/2026-11-19-windows.md)
+(Windows 11 laptop, PostgreSQL 18.7 in Docker on the same machine).
+
+| | Added cost |
+|---|---:|
+| Statement on an instrumented connection, no trace active | 0.11 µs |
+| Statement recorded into a trace | 9.74 µs |
+| `GET /artists/tracks` (6 statements) with `?lens=1`, p50 | +0.16 ms (11.86 ms without the lens) |
 
 Licence: Apache-2.0.

@@ -229,3 +229,44 @@
 4. Why are the browser tests excluded from the default `pytest` run?
 5. The e2e fixture writes uvicorn's output to a temporary file instead of a pipe. What could
    go wrong with an unread pipe?
+
+## SQLAlchemy, asyncpg and the overhead benchmark (2026-11-19)
+
+**What was built**
+
+- `collectors/sqlalchemy.py`: `instrument_engine(engine)` for sync and async engines, using
+  the engine's cursor events.
+- `collectors/asyncpg.py`: `TracedConnection`, passed to asyncpg as `connection_class`.
+- `core/record.py`: the start-and-finish logic all three collectors now share.
+- The example app runs on psycopg, SQLAlchemy (async, on asyncpg) or asyncpg, chosen by
+  `EXAMPLE_DRIVER`, with the same URLs and answers; its tests run on all three.
+- `bench/overhead.py`, its committed result, and the README's overhead table.
+- `docs/adr/0006-more-drivers.md`.
+
+**Why**
+
+- asyncpg's built-in query logger looked like the obvious hook, but reading its source showed
+  it runs *after* the query, from the event loop, with the user's code gone from the stack,
+  and it never sees prepared statements. A Connection subclass sees each call as it happens.
+- SQLAlchemy's async engines run driver calls in a greenlet. A probe showed ContextVars still
+  work there, but the user's frames live in the parent greenlet, so the call-site lookup
+  follows `greenlet.parent`.
+- SQLAlchemy on an instrumented psycopg connection would record everything twice; marking
+  the cursor while SQLAlchemy records it keeps one copy.
+- A bug caught by a test: SQLAlchemy 2.1's `ExceptionContext.cursor` is not always set, and
+  reading it raised inside SQLAlchemy's error handling, replacing the user's database error.
+  Every handler is now fully guarded, with a test and a mutation check.
+- Benchmarks: the first designs (separate timed runs per setup) gave differences bigger than
+  the effect, even "disabled slower than enabled". Measuring the recording path on its own,
+  and interleaving requests one at a time, removed machine-speed drift and queueing.
+  Profiling also found that half the cost was path normalisation; caching it halved it.
+
+**Quiz**
+
+1. Why was asyncpg's `add_query_logger` rejected, and what does `connection_class` give instead?
+2. How does the call-site lookup find user code when SQLAlchemy runs the query in a greenlet?
+3. What would happen without the cursor mark when SQLAlchemy runs on an instrumented psycopg
+   connection?
+4. Why can an exception inside a `handle_error` listener be worse than the original bug?
+5. Why does the benchmark interleave setups request by request instead of running each setup
+   for ten seconds in turn?
