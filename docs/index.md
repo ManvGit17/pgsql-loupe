@@ -60,7 +60,7 @@ timing, the line of code that ran it, `EXPLAIN ANALYZE` plans, fired triggers an
 ## Two lines to add
 
 ```python
-pool = ConnectionPool(dsn, configure=instrument)          # 1. record statements
+pool = ConnectionPool(dsn, configure=instrument)  # 1. record statements
 install(app, LoupeConfig(explain=ExplainOptions(dsn=dsn)))  # 2. add the panel
 ```
 
