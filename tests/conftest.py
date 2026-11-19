@@ -11,6 +11,8 @@ import pytest
 
 from pgsql_loupe.collectors.psycopg import instrument
 
+pytest_plugins = ["pytester"]
+
 # Template-string tests use t"..." syntax, which older Pythons cannot even parse.
 collect_ignore = ["test_psycopg_py314.py"] if sys.version_info < (3, 14) else []
 
