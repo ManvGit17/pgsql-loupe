@@ -1,31 +1,72 @@
+---
+hide:
+  - navigation
+  - toc
+---
+
+<div class="loupe-hero" markdown>
+
 # pgsql-loupe
 
-A debug panel for Python web apps on PostgreSQL. Open any page with `?lens=1` and see what it
-did to the database: every statement, its parameters, how long it took, the line of your code
-that ran it, `EXPLAIN ANALYZE` plans, the triggers that fired, and a warning when the same
-query ran once per row.
+See what every request did to your PostgreSQL database: each statement, its parameters and
+timing, the line of code that ran it, `EXPLAIN ANALYZE` plans, fired triggers and N+1 warnings.
 
-![The panel showing an N+1 warning and a query plan](images/panel.png)
+[Get started](quickstart.md){ .md-button .md-button--primary }
+[GitHub](https://github.com/ManvGit17/pgsql-loupe){ .md-button }
 
-## What it does
+</div>
 
-- **Records** every statement a request runs, through psycopg 3, SQLAlchemy 2 (sync and async)
-  or asyncpg, without changing your queries.
-- **Explains** them on request: analysed plans for reads, non-executed plans for writes, with
-  fired triggers and warnings for big sequential scans, bad row estimates and spills to disk.
-- **Warns** about N+1 patterns, duplicate queries and slow statements.
-- **Shows** it all in a panel at `/__lens/` that ships inside the package (no Node needed).
-- **Tests** it: a pytest fixture with `assert_max_queries`, `assert_no_nplus1` and
-  `assert_no_seq_scan`.
+<div class="loupe-shot" markdown>
 
-## Safe by default
+![The panel showing an N+1 warning and a query plan](images/panel.png#only-light)
+![The panel showing an N+1 warning and a query plan](images/panel-dark.png#only-dark)
 
-Off unless `PGSQL_LOUPE_ENABLED=1`, refuses to start when the environment says production,
-answers only requests from this machine, and redacts parameters that look secret. Plan capture
-never touches your connection and never runs a write unless you ask. See the
-[safety model](safety.md).
+</div>
 
-## Next
+<div class="grid cards" markdown>
 
-- [Quick start](quickstart.md) for psycopg, SQLAlchemy or asyncpg.
-- [How it compares](prior-art.md) with existing tools.
+-   :material-database-search: **Every statement**
+
+    psycopg 3, SQLAlchemy 2 (sync and async) and asyncpg, recorded without changing your
+    queries, each with the line of your code that ran it.
+
+-   :material-sitemap: **Plans and triggers**
+
+    `EXPLAIN ANALYZE` for reads, non-executed plans for writes, fired triggers, and warnings
+    for big scans, bad estimates and spills. [How it stays safe](plans.md)
+
+-   :material-repeat: **N+1 and duplicates**
+
+    The same query shape run once per row is flagged with the code that ran it, along with
+    exact duplicates and slow statements.
+
+-   :material-monitor-dashboard: **A panel in the package**
+
+    Open `/__lens/` in your app. It works offline, needs no Node, and ships inside the
+    Python package.
+
+-   :material-test-tube: **Query budgets in tests**
+
+    A pytest fixture: `assert_max_queries`, `assert_no_nplus1`, `assert_no_seq_scan`.
+    [In tests](testing.md)
+
+-   :material-shield-check: **Safe by default**
+
+    Off unless enabled, refuses production, local requests only, secrets redacted.
+    [Safety model](safety.md)
+
+</div>
+
+## Two lines to add
+
+```python
+pool = ConnectionPool(dsn, configure=instrument)          # 1. record statements
+install(app, LoupeConfig(explain=ExplainOptions(dsn=dsn)))  # 2. add the panel
+```
+
+Then run with `PGSQL_LOUPE_ENABLED=1`, open any page with `?lens=plan`, and go to `/__lens/`.
+The [quick start](quickstart.md) covers all three drivers.
+
+```bash
+pip install "pgsql-loupe[psycopg]"
+```

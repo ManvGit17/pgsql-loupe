@@ -1,33 +1,76 @@
 site_name: pgsql-loupe
 site_description: A debug panel for Python web apps on PostgreSQL
+site_url: https://manvgit17.github.io/pgsql-loupe/
 repo_url: https://github.com/ManvGit17/pgsql-loupe
 repo_name: ManvGit17/pgsql-loupe
 docs_dir: docs
 strict: true
+copyright: Apache-2.0 licence
 
 theme:
   name: material
+  font: false # system fonts: nothing is loaded from third parties
+  favicon: images/favicon.svg
+  logo: images/favicon.svg
+  icon:
+    repo: fontawesome/brands/github
   features:
-    - content.code.copy
+    - navigation.instant # page changes without full reloads
+    - navigation.instant.progress
+    - navigation.tracking
     - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
   palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Light theme
     - media: "(prefers-color-scheme: light)"
       scheme: default
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
         name: Dark theme
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: custom
+      accent: custom
       toggle:
-        icon: material/weather-sunny
-        name: Light theme
+        icon: material/brightness-auto
+        name: Follow the system
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ManvGit17/pgsql-loupe
+      name: pgsql-loupe on GitHub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/pgsql-loupe/
+      name: pgsql-loupe on PyPI
 
 markdown_extensions:
   - admonition
+  - attr_list
+  - md_in_html
   - tables
   - toc:
       permalink: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight
+  - pymdownx.inlinehilite
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true

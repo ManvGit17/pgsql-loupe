@@ -1,0 +1,197 @@
+/* A quiet theme: the panel's colours, system fonts, hairlines instead of shadows. */
+
+:root {
+  --md-text-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --md-code-font-family: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+  --loupe-radius: 10px;
+  --loupe-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #ffffff;
+  --md-primary-fg-color--light: #ffffff;
+  --md-primary-fg-color--dark: #f7f7f5;
+  --md-primary-bg-color: #1c1c1a;
+  --md-primary-bg-color--light: #55554f;
+  --md-accent-fg-color: #2f5fd0;
+  --md-accent-fg-color--transparent: rgba(47, 95, 208, 0.08);
+  --md-typeset-a-color: #2f5fd0;
+  --md-default-fg-color: #1c1c1a;
+  --md-default-fg-color--light: #55554f;
+  --md-default-fg-color--lighter: #8a8a83;
+  --md-default-fg-color--lightest: #e6e6e1;
+  --md-code-bg-color: #f4f4f1;
+  --loupe-line: #e6e6e1;
+  --loupe-card: #ffffff;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 60;
+  --md-primary-fg-color: #141413;
+  --md-primary-fg-color--light: #141413;
+  --md-primary-fg-color--dark: #141413;
+  --md-primary-bg-color: #ecece8;
+  --md-primary-bg-color--light: #b5b5ad;
+  --md-accent-fg-color: #8fb0ff;
+  --md-accent-fg-color--transparent: rgba(143, 176, 255, 0.1);
+  --md-typeset-a-color: #8fb0ff;
+  --md-default-bg-color: #141413;
+  --md-default-fg-color: #ecece8;
+  --md-default-fg-color--light: #b5b5ad;
+  --md-default-fg-color--lighter: #8a8a83;
+  --md-default-fg-color--lightest: #2c2c29;
+  --md-code-bg-color: #1d1d1b;
+  --md-footer-bg-color: #141413;
+  --md-footer-bg-color--dark: #101010;
+  --loupe-line: #2c2c29;
+  --loupe-card: #1a1a18;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Header: flat, a hairline instead of a coloured bar and shadow. */
+.md-header,
+.md-header--shadow {
+  box-shadow: none;
+  border-bottom: 1px solid var(--loupe-line);
+}
+.md-header__title {
+  font-weight: 600;
+}
+.md-search__form {
+  border-radius: 8px;
+  background-color: var(--md-code-bg-color);
+}
+
+/* Footer: the same quiet surface as the page. */
+.md-footer {
+  border-top: 1px solid var(--loupe-line);
+}
+.md-footer,
+.md-footer-meta {
+  background-color: var(--md-default-bg-color);
+  color: var(--md-default-fg-color--light);
+}
+.md-footer__link,
+.md-footer-meta a,
+.md-social__link svg {
+  color: var(--md-default-fg-color--light);
+  fill: currentColor;
+}
+
+/* Text. */
+.md-typeset {
+  font-size: 0.8rem;
+  line-height: 1.7;
+}
+.md-typeset h1 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--md-default-fg-color);
+}
+.md-typeset h2 {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.md-typeset a {
+  text-underline-offset: 0.2em;
+  transition: color 150ms var(--loupe-ease);
+}
+
+/* Code, tables, images: rounded and bordered, no shadows. */
+.md-typeset pre > code,
+.md-typeset .highlight,
+.md-typeset .tabbed-set {
+  border-radius: var(--loupe-radius);
+}
+.md-typeset table:not([class]) {
+  border: 1px solid var(--loupe-line);
+  border-radius: var(--loupe-radius);
+  box-shadow: none;
+  font-size: 0.75rem;
+}
+.md-typeset img {
+  border-radius: var(--loupe-radius);
+  border: 1px solid var(--loupe-line);
+}
+
+/* Navigation: the current page is bold, nothing more. */
+.md-nav__link--active {
+  font-weight: 600;
+}
+
+/* Home page. */
+.loupe-hero {
+  text-align: center;
+  margin: 1.5rem auto 2rem;
+  max-width: 38rem;
+}
+.loupe-hero h1 {
+  font-size: 2.4rem;
+  margin-bottom: 0.4rem;
+}
+.loupe-hero p {
+  font-size: 0.95rem;
+  color: var(--md-default-fg-color--light);
+}
+/* Buttons: Material colours them with the header colour, which is white here. */
+.md-typeset .md-button {
+  border: 1px solid var(--loupe-line);
+  border-radius: 999px;
+  color: var(--md-default-fg-color);
+  background: transparent;
+  margin: 0.3rem;
+  padding: 0.55em 1.6em;
+  transition: transform 150ms var(--loupe-ease), border-color 150ms var(--loupe-ease),
+    background-color 150ms var(--loupe-ease);
+}
+.md-typeset .md-button:hover,
+.md-typeset .md-button:focus {
+  border-color: var(--md-accent-fg-color);
+  background: transparent;
+  color: var(--md-default-fg-color);
+  transform: translateY(-1px);
+}
+.md-typeset .md-button--primary,
+.md-typeset .md-button--primary:hover,
+.md-typeset .md-button--primary:focus {
+  border-color: var(--md-accent-fg-color);
+  background: var(--md-accent-fg-color);
+  color: var(--md-default-bg-color);
+}
+.md-header__button.md-logo img {
+  border-radius: 6px;
+  border: none;
+}
+.loupe-shot img {
+  display: block;
+  margin: 0 auto 2.5rem;
+}
+.md-typeset .grid.cards > ul > li {
+  border: 1px solid var(--loupe-line);
+  border-radius: var(--loupe-radius);
+  background: var(--loupe-card);
+  transition: border-color 200ms var(--loupe-ease), transform 200ms var(--loupe-ease);
+}
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--md-accent-fg-color);
+  box-shadow: none;
+  transform: translateY(-2px);
+}
+.md-typeset .grid.cards .twemoji svg {
+  color: var(--md-accent-fg-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
