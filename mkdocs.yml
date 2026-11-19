@@ -1,0 +1,62 @@
+site_name: pgsql-loupe
+site_description: A debug panel for Python web apps on PostgreSQL
+repo_url: https://github.com/ManvGit17/pgsql-loupe
+repo_name: ManvGit17/pgsql-loupe
+docs_dir: docs
+strict: true
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.sections
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Dark theme
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Light theme
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+# Notes for the maintainer, not pages for users.
+exclude_docs: |
+  learning-log.md
+  good-first-issues.md
+
+nav:
+  - Home: index.md
+  - Quick start: quickstart.md
+  - Using it:
+      - The panel and the API: panel.md
+      - Query plans: plans.md
+      - In tests (pytest): testing.md
+      - Recipes: recipes.md
+  - Reference:
+      - Configuration: configuration.md
+      - Safety model: safety.md
+      - Overhead: overhead.md
+  - Background:
+      - Prior art: prior-art.md
+      - Design decisions:
+          - adr/0001-psycopg-hook.md
+          - adr/0002-asgi-middleware-and-guard.md
+          - adr/0003-plan-capture-safety.md
+          - adr/0004-sql-fingerprint.md
+          - adr/0005-panel.md
+          - adr/0006-more-drivers.md
+          - adr/0007-pytest-plugin.md
+          - adr/0008-docs-and-release.md

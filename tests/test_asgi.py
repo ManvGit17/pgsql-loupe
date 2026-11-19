@@ -233,3 +233,24 @@ def test_dns_rebinding_host_is_refused(pool: ConnectionPool[Any]) -> None:
         assert c.get("/__lens/api/requests").status_code == 404
     with TestClient(make_app(pool), client=LOCAL, base_url="http://[::1]:8000") as c:
         assert "x-lens-id" in c.get("/one?lens=1").headers
+
+
+def test_wrapping_a_plain_asgi_app(pool: ConnectionPool[Any]) -> None:
+    """The docs' recipe: `app = LoupeMiddleware(app, LoupeConfig(...))` with no framework."""
+
+    async def plain_app(scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] == "lifespan":  # a well-behaved app acknowledges start-up/shutdown
+            while (await receive())["type"] != "lifespan.shutdown":
+                await send({"type": "lifespan.startup.complete"})
+            await send({"type": "lifespan.shutdown.complete"})
+            return
+        with pool.connection() as conn:
+            conn.execute("SELECT 'plain asgi'")
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    app = LoupeMiddleware(plain_app, LoupeConfig(enabled=True))
+    with TestClient(app, client=LOCAL, base_url=LOCAL_URL) as client:
+        lens_id = client.get("/anything?lens=1").headers["x-lens-id"]
+        trace = client.get(f"/__lens/api/requests/{lens_id}").json()
+    assert [s["sql"] for s in trace["statements"]] == ["SELECT 'plain asgi'"]
