@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 EXAMPLE = Path(__file__).resolve().parent.parent / "examples" / "fastapi-psycopg" / "app.py"
 LOCAL = ("127.0.0.1", 50000)
+LOCAL_URL = "http://127.0.0.1:8000"
 
 
 @pytest.fixture
@@ -37,7 +38,7 @@ def test_request_returns_trace_id_and_json_has_its_statements(
 ) -> None:
     clean_env.setenv("PGSQL_LOUPE_ENABLED", "1")
     example = load_example()
-    with TestClient(example.app, client=LOCAL) as client:
+    with TestClient(example.app, client=LOCAL, base_url=LOCAL_URL) as client:
         response = client.get("/artists/tracks?lens=1")
         assert response.status_code == 200
         artists = response.json()
@@ -58,9 +59,23 @@ def test_request_returns_trace_id_and_json_has_its_statements(
 
 def test_routes_return_404_when_disabled(clean_env: pytest.MonkeyPatch) -> None:
     example = load_example()  # PGSQL_LOUPE_ENABLED not set
-    with TestClient(example.app, client=LOCAL) as client:
+    with TestClient(example.app, client=LOCAL, base_url=LOCAL_URL) as client:
         response = client.get("/artists?lens=1")
         assert response.status_code == 200
         assert "x-lens-id" not in response.headers
         assert "server-timing" not in response.headers
         assert client.get("/__lens/api/requests").status_code == 404
+
+
+def test_plan_mode_on_the_example(clean_env: pytest.MonkeyPatch) -> None:
+    clean_env.setenv("PGSQL_LOUPE_ENABLED", "1")
+    example = load_example()
+    with TestClient(example.app, client=LOCAL, base_url=LOCAL_URL) as client:
+        first = client.get("/artists/tracks").json()
+        lens_id = client.get("/artists/tracks?lens=plan").headers["x-lens-id"]
+        trace = client.get(f"/__lens/api/requests/{lens_id}").json()
+        assert client.get("/artists/tracks").json() == first  # data unchanged
+    plans = [s["plan"] for s in trace["statements"]]
+    assert all(p is not None and p["mode"] == "analyze" for p in plans)
+    # The N+1 queries differ only in their parameter, so each is explained separately.
+    assert trace["plan_note"] == f"{len(plans)} plan(s) captured"

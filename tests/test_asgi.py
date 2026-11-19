@@ -10,11 +10,19 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from psycopg_pool import ConnectionPool
 
-from pgsql_loupe.asgi import LoupeConfig, LoupeMiddleware, ProductionGuardError, install
+from pgsql_loupe.asgi import (
+    ExplainOptions,
+    LoupeConfig,
+    LoupeMiddleware,
+    ProductionGuardError,
+    install,
+)
 from pgsql_loupe.asgi.middleware import requested_mode
 
 LOCAL = ("127.0.0.1", 50000)
+LOCAL_URL = "http://127.0.0.1:8000"
 ON = {"PGSQL_LOUPE_ENABLED": "1"}
+SECRET = "hunter2-do-not-leak"
 
 
 @pytest.fixture(scope="module")
@@ -41,6 +49,12 @@ def make_app(
         with pool.connection() as conn:
             conn.execute("SELECT * FROM no_such_table")
 
+    @app.get("/secret")
+    def secret() -> str:
+        with pool.connection() as conn:
+            row = conn.execute("SELECT %(password)s::text", {"password": SECRET}).fetchone()
+        return "" if row is None else str(row[0])
+
     install(app, config, environ=environ)
     return app
 
@@ -51,14 +65,14 @@ def requests_list(client: TestClient) -> list[dict[str, Any]]:
 
 
 def test_untraced_requests_are_left_alone(pool: ConnectionPool[Any]) -> None:
-    with TestClient(make_app(pool), client=LOCAL) as client:
+    with TestClient(make_app(pool), client=LOCAL, base_url=LOCAL_URL) as client:
         response = client.get("/one")
         assert "x-lens-id" not in response.headers
         assert requests_list(client) == []
 
 
 def test_header_activation_and_list_endpoint(pool: ConnectionPool[Any]) -> None:
-    with TestClient(make_app(pool), client=LOCAL) as client:
+    with TestClient(make_app(pool), client=LOCAL, base_url=LOCAL_URL) as client:
         lens_id = client.get("/one", headers={"X-Lens": "1"}).headers["x-lens-id"]
         plan_id = client.get("/one?lens=plan").headers["x-lens-id"]
         listed = requests_list(client)
@@ -68,7 +82,9 @@ def test_header_activation_and_list_endpoint(pool: ConnectionPool[Any]) -> None:
 
 
 def test_failing_statement_appears_in_the_trace(pool: ConnectionPool[Any]) -> None:
-    with TestClient(make_app(pool), client=LOCAL, raise_server_exceptions=False) as client:
+    with TestClient(
+        make_app(pool), client=LOCAL, base_url=LOCAL_URL, raise_server_exceptions=False
+    ) as client:
         response = client.get("/boom?lens=1")
         assert response.status_code == 500
         # Starlette's error handler sends the 500 outside our middleware: no header.
@@ -87,12 +103,12 @@ def test_non_local_clients_are_never_traced_and_cannot_see_the_api(
     with TestClient(app, client=("203.0.113.9", 4000)) as remote:
         assert "x-lens-id" not in remote.get("/one?lens=1").headers
         assert remote.get("/__lens/api/requests").status_code == 404
-    with TestClient(app, client=LOCAL) as local:
+    with TestClient(app, client=LOCAL, base_url=LOCAL_URL) as local:
         assert requests_list(local) == []
 
 
 def test_forwarded_requests_count_as_non_local(pool: ConnectionPool[Any]) -> None:
-    with TestClient(make_app(pool), client=LOCAL) as client:
+    with TestClient(make_app(pool), client=LOCAL, base_url=LOCAL_URL) as client:
         proxied = client.get("/one?lens=1", headers={"X-Forwarded-For": "203.0.113.9"})
         assert "x-lens-id" not in proxied.headers
         api = client.get("/__lens/api/requests", headers={"Forwarded": "for=203.0.113.9"})
@@ -106,14 +122,16 @@ def test_custom_authorize_callback(pool: ConnectionPool[Any]) -> None:
 
 
 def test_ring_buffer_keeps_only_the_latest(pool: ConnectionPool[Any]) -> None:
-    with TestClient(make_app(pool, LoupeConfig(history=2)), client=LOCAL) as client:
+    with TestClient(
+        make_app(pool, LoupeConfig(history=2)), client=LOCAL, base_url=LOCAL_URL
+    ) as client:
         ids = [client.get("/one?lens=1").headers["x-lens-id"] for _ in range(3)]
         assert [r["id"] for r in requests_list(client)] == [ids[2], ids[1]]
         assert client.get(f"/__lens/api/requests/{ids[0]}").status_code == 404
 
 
 def test_api_rejects_other_methods_and_paths(pool: ConnectionPool[Any]) -> None:
-    with TestClient(make_app(pool), client=LOCAL) as client:
+    with TestClient(make_app(pool), client=LOCAL, base_url=LOCAL_URL) as client:
         assert client.post("/__lens/api/requests").status_code == 405
         assert client.get("/__lens/api/nothing").status_code == 404
         assert client.get("/__lens/api/requests").headers["cache-control"] == "no-store"
@@ -153,3 +171,65 @@ def test_disabled_install_leaves_the_app_untouched() -> None:
 )
 def test_requested_mode(query: bytes, headers: list[tuple[bytes, bytes]], expected: str) -> None:
     assert requested_mode({"query_string": query, "headers": headers}) == expected
+
+
+def explain_config(pg_dsn: str) -> LoupeConfig:
+    return LoupeConfig(explain=ExplainOptions(dsn=pg_dsn))
+
+
+def test_plan_mode_attaches_plans(pool: ConnectionPool[Any], pg_dsn: str) -> None:
+    with TestClient(make_app(pool, explain_config(pg_dsn)), client=LOCAL, base_url=LOCAL_URL) as c:
+        lens_id = c.get("/one?lens=plan").headers["x-lens-id"]
+        trace = c.get(f"/__lens/api/requests/{lens_id}").json()
+    assert trace["plan_note"] == "1 plan(s) captured"
+    (statement,) = trace["statements"]
+    assert statement["explain"] == "read"
+    assert statement["plan"]["mode"] == "analyze"
+    assert statement["plan"]["root"]["node_type"] == "Result"
+
+
+def test_plan_mode_without_explain_settings_says_so(pool: ConnectionPool[Any]) -> None:
+    with TestClient(make_app(pool), client=LOCAL, base_url=LOCAL_URL) as c:
+        lens_id = c.get("/one?lens=plan").headers["x-lens-id"]
+        trace = c.get(f"/__lens/api/requests/{lens_id}").json()
+    assert trace["plan_note"].startswith("plan capture is not configured")
+    assert trace["statements"][0]["plan"] is None
+
+
+def test_explain_endpoint(pool: ConnectionPool[Any], pg_dsn: str) -> None:
+    with TestClient(make_app(pool, explain_config(pg_dsn)), client=LOCAL, base_url=LOCAL_URL) as c:
+        lens_id = c.get("/one?lens=1").headers["x-lens-id"]
+        url = f"/__lens/api/requests/{lens_id}/statements/0/explain"
+        assert c.post(url).status_code == 403  # no X-Lens header: possible cross-site request
+        plan = c.post(url, headers={"X-Lens": "1"}).json()
+        assert plan["mode"] == "analyze"
+        stored = c.get(f"/__lens/api/requests/{lens_id}").json()["statements"][0]["plan"]
+        assert stored == plan
+        assert c.get(url).status_code == 405
+        assert c.post(url.replace("/0/", "/9/"), headers={"X-Lens": "1"}).status_code == 404
+        assert c.post(url.replace("/0/", "/x/"), headers={"X-Lens": "1"}).status_code == 404
+
+
+def test_explain_endpoint_without_explain_settings(pool: ConnectionPool[Any]) -> None:
+    with TestClient(make_app(pool), client=LOCAL, base_url=LOCAL_URL) as c:
+        lens_id = c.get("/one?lens=1").headers["x-lens-id"]
+        url = f"/__lens/api/requests/{lens_id}/statements/0/explain"
+        assert c.post(url, headers={"X-Lens": "1"}).status_code == 409
+
+
+def test_raw_parameter_values_are_never_served(pool: ConnectionPool[Any], pg_dsn: str) -> None:
+    with TestClient(make_app(pool, explain_config(pg_dsn)), client=LOCAL, base_url=LOCAL_URL) as c:
+        lens_id = c.get("/secret?lens=plan").headers["x-lens-id"]
+        body = c.get(f"/__lens/api/requests/{lens_id}").text
+        listed = c.get("/__lens/api/requests").text
+    assert SECRET not in body and SECRET not in listed
+    assert '"password": "<redacted>"' in body
+    assert '"mode": "analyze"' in body  # the replay still used the real value
+
+
+def test_dns_rebinding_host_is_refused(pool: ConnectionPool[Any]) -> None:
+    with TestClient(make_app(pool), client=LOCAL, base_url="http://attacker.example:8000") as c:
+        assert "x-lens-id" not in c.get("/one?lens=1").headers
+        assert c.get("/__lens/api/requests").status_code == 404
+    with TestClient(make_app(pool), client=LOCAL, base_url="http://[::1]:8000") as c:
+        assert "x-lens-id" in c.get("/one?lens=1").headers
