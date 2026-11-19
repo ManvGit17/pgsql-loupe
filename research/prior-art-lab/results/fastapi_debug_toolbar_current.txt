@@ -1,0 +1,16 @@
+
+[exit 1]
+, in add_engines
+    dependencies = await get_dependencies(request)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv-cache\archive-v0\6BYEkkMlOtg-yj-5\Lib\site-packages\debug_toolbar\dependencies.py", line 15, in get_dependencies
+    solved_result = await solve_dependencies(
+                          ~~~~~~~~~~~~~~~~~~^
+        request=request,
+        ^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        async_exit_stack=AsyncExitStack(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+TypeError: solve_dependencies() missing 1 required keyword-only argument: 'embed_body_fields'

@@ -1,0 +1,22 @@
+stored keys: []
+GET /sa/nplus1: status=200 queries=11 n_plus_one=1 duplicates=1
+    sql='SELECT id FROM artists ORDER BY id' params='{}'
+    sql='SELECT title FROM tracks WHERE artist_id = %(a)s' params="{'a': 1}"
+GET /sa/dup: status=200 queries=3 n_plus_one=1 duplicates=1
+    sql='SELECT name FROM artists WHERE id = %(a)s' params="{'a': 1}"
+    sql='SELECT name FROM artists WHERE id = %(a)s' params="{'a': 1}"
+POST /sa/write: status=200 queries=1 n_plus_one=0 duplicates=0
+    sql='UPDATE tracks SET plays = plays + 1 WHERE id = %(t)s' params="{'t': 7}"
+GET /sa/seq: status=200 queries=1 n_plus_one=0 duplicates=0
+    sql='SELECT count(*) FROM events WHERE payload = %(p)s' params="{'p': 'x'}"
+GET /sa/error: status=200 queries=0 n_plus_one=0 duplicates=0
+GET /raw/nplus1: status=200 queries=0 n_plus_one=0 duplicates=0
+GET /apg/nplus1: status=200 queries=0 n_plus_one=0 duplicates=0
+POST /_debug_toolbar/api/explain -> 404
+data unchanged by explain attempt: True
+ExplainExecutor (psycopg pyformat params): {"error": "(psycopg.errors.SyntaxError) syntax error at or near \"%\"\nLINE 1: ...RMAT TEXT) SELECT count(*) FROM events WHERE payload = %(p)s\n                                                                  ^\n[SQL: EXPLAIN (BUFFERS, FORMAT TEXT) SELECT count(*) FROM events WHERE payload = %%(p)s
+ExplainExecutor (no params): EXPLAIN (BUFFERS, FORMAT TEXT) SELECT count(*) FROM events WHERE payload = 'x' | Aggregate  (cost=4370.00..4370.01 rows=1 width=8)
+  ->  Seq Scan on events  (cost=0.00..4370.00 rows=1 width=0)
+        Filter: (payload = 'x'::text)
+concurrent request trace params: ["{'tag': 'A'}"]
+concurrent request trace params: ["{'tag': 'A'}"]

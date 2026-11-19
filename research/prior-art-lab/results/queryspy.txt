@@ -1,0 +1,22 @@
+GET /sa/nplus1: status=200 queries=11 findings=[]
+    headers: {'x-queryspy-queries': '11'}
+GET /orm/nplus1: status=200 queries=11 findings=[]
+    headers: {'x-queryspy-queries': '11'}
+GET /model/nplus1: status=200 queries=11 findings=[('repeated_statement', 10)]
+    headers: {'x-queryspy-queries': '11', 'x-queryspy-findings': '1'}
+GET /sa/dup: status=200 queries=3 findings=[]
+    headers: {'x-queryspy-queries': '3'}
+POST /sa/write: status=200 queries=1 findings=[]
+    headers: {'x-queryspy-queries': '1'}
+GET /sa/seq: status=200 queries=1 findings=[]
+    headers: {'x-queryspy-queries': '1'}
+GET /sa/error: status=200 queries=1 findings=[]
+    headers: {'x-queryspy-queries': '1'}
+GET /raw/nplus1: status=200 queries=0 findings=[]
+    headers: {'x-queryspy-queries': '0'}
+GET /apg/nplus1: status=200 queries=0 findings=[]
+    headers: {'x-queryspy-queries': '0'}
+sample rendered report:
+GET /apg/nplus1 - 0 queries in 31.6ms (0.0ms in the database)
+concurrent query counts: [('/sa/nplus1', 11), ('/sa/slow', 1), ('/sa/slow', 1)]
+panel GET /__queryspy__ -> 200, 5728 bytes, mentions EXPLAIN: False
