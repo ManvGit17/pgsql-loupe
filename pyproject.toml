@@ -18,6 +18,9 @@ psycopg = ["psycopg>=3.3,<4"]
 sqlalchemy = ["sqlalchemy>=2.1,<3"]
 asyncpg = ["asyncpg>=0.32,<1"]
 
+[project.entry-points.pytest11]
+pgsql_loupe = "pgsql_loupe.pytest_plugin"
+
 [dependency-groups]
 dev = [
     "asyncpg==0.32.0",
