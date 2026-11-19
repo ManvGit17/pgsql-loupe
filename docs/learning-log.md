@@ -80,3 +80,43 @@
 4. Two requests run concurrently on one event loop. Explain step by step why their
    statements land in different traces.
 5. Why does `stream()` treat `GeneratorExit` differently from other exceptions?
+
+## Phase 2: ASGI middleware and JSON output (2026-11-19)
+
+**What was built**
+
+- `asgi/middleware.py`: `LoupeMiddleware`, a plain ASGI middleware. A request asking for
+  tracing (`?lens=1`, `?lens=plan`, `X-Lens` header) runs inside `pgsql_loupe.trace()`. The
+  response gets `X-Lens-Id` (where to find the trace) and `Server-Timing` (database time,
+  shown by browser dev tools). It also answers `GET /__lens/api/requests[/{id}]` as JSON.
+- `asgi/store.py`: the last 100 traced requests in memory (a ring buffer).
+- `asgi/config.py`: off unless `PGSQL_LOUPE_ENABLED=1`; refuses to start if `APP_ENV` (or
+  similar) says production; only localhost may trigger tracing or read the API.
+- `asgi.install(app)`: the second line of the two-line FastAPI setup.
+- `examples/fastapi-psycopg`: a small app with a deliberate N+1, used by the tests.
+
+**Why**
+
+- A pure ASGI middleware calls the app in the same asyncio task, so the trace ContextVar is
+  visible in the endpoint. FastAPI runs `def` endpoints in a thread pool but copies the
+  context first, which is why the example's sync endpoints are traced too.
+- Authorisation guards *activation*, not only the API: in Phase 3, `?lens=plan` will run
+  `EXPLAIN ANALYZE`, so a stranger must not be able to turn it on.
+- "Localhost only" is broken by a reverse proxy on the same machine (every request then
+  comes from 127.0.0.1), so a request with `X-Forwarded-For` or `Forwarded` counts as remote.
+- The plan's `install(app, pool=...)` was dropped: psycopg-pool's configure hook is private
+  and only applies to new connections. `ConnectionPool(..., configure=instrument)` is the
+  supported way.
+- An endpoint that crashes gets its 500 from Starlette's outermost error handler, outside
+  our middleware, so that response has no `X-Lens-Id`. The stored trace still records
+  status 500 and the exception name.
+
+**Quiz**
+
+1. Why must the authorisation check run before a request is traced, not only on `/__lens`?
+2. What does a reverse proxy on the same host do to a "localhost only" rule, and how does
+   pgsql-loupe defend against it?
+3. A FastAPI `def` (not `async def`) endpoint runs in another thread. Why are its
+   statements still recorded into the request's trace?
+4. Why is `Server-Timing` sometimes lower than the database time in the stored trace?
+5. Why does the production guard run inside `install()` instead of on the first request?

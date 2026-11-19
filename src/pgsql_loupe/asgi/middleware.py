@@ -1,0 +1,135 @@
+"""Pure ASGI middleware: traces opted-in requests and serves /__lens/api.
+
+    app.add_middleware(LoupeMiddleware)        # Starlette / FastAPI
+    app = LoupeMiddleware(app)                 # any other ASGI app
+
+See docs/adr/0002-asgi-middleware-and-guard.md.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from collections.abc import Awaitable, Callable, Mapping, MutableMapping
+from typing import Any
+from urllib.parse import parse_qs
+
+from pgsql_loupe.asgi.config import LoupeConfig, Scope
+from pgsql_loupe.asgi.serialize import detail, summary
+from pgsql_loupe.asgi.store import RequestRecord, RequestStore
+from pgsql_loupe.core.trace import Trace, trace
+
+Message = MutableMapping[str, Any]
+Receive = Callable[[], Awaitable[Message]]
+Send = Callable[[Message], Awaitable[None]]
+ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
+
+MODES = {"1": "trace", "true": "trace", "trace": "trace", "plan": "plan"}
+
+
+def requested_mode(scope: Scope) -> str | None:
+    """'trace' or 'plan' if the request asked to be traced, else None."""
+    for name, value in scope.get("headers", []):
+        if name.lower() == b"x-lens":
+            return MODES.get(value.decode("latin-1").strip().lower())
+    query = parse_qs(scope.get("query_string", b"").decode("latin-1"))
+    values = query.get("lens")
+    return MODES.get(values[-1].strip().lower()) if values else None
+
+
+def server_timing(t: Trace) -> str:
+    count = len(t.statements)
+    noun = "statement" if count == 1 else "statements"
+    return f'db;dur={t.total_ms:.3f};desc="{count} {noun}"'
+
+
+class LoupeMiddleware:
+    def __init__(
+        self,
+        app: ASGIApp,
+        config: LoupeConfig | None = None,
+        *,
+        environ: Mapping[str, str] | None = None,
+    ) -> None:
+        self.app = app
+        self.config = config or LoupeConfig()
+        self.enabled = self.config.is_enabled(environ)
+        if self.enabled:
+            self.config.check_not_production(environ)
+        self.store = RequestStore(self.config.history)
+        self._prefix = self.config.prefix.rstrip("/")
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if not self.enabled or scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        path: str = scope["path"]
+        if path == self._prefix or path.startswith(self._prefix + "/"):
+            if self.config.authorize(scope):
+                await self._serve_api(scope, send)
+            else:  # behave as if the routes did not exist
+                await self.app(scope, receive, send)
+            return
+        mode = requested_mode(scope)
+        if mode is None or not self.config.authorize(scope):
+            await self.app(scope, receive, send)
+            return
+        await self._traced(scope, receive, send, mode)
+
+    async def _traced(self, scope: Scope, receive: Receive, send: Send, mode: str) -> None:
+        started = time.perf_counter_ns()
+        with trace(f"{scope['method']} {scope['path']}") as t:
+            record = RequestRecord(trace=t, method=scope["method"], path=scope["path"], mode=mode)
+            self.store.add(record)
+
+            async def send_with_headers(message: Message) -> None:
+                if message["type"] == "http.response.start":
+                    record.status = message["status"]
+                    headers = list(message.get("headers", []))
+                    headers.append((b"x-lens-id", record.id.encode()))
+                    headers.append((b"server-timing", server_timing(t).encode()))
+                    message = {**message, "headers": headers}
+                await send(message)
+
+            try:
+                await self.app(scope, receive, send_with_headers)
+            except BaseException as exc:
+                # An outer error handler (e.g. Starlette's) will send the 500 response, past
+                # this middleware, so the headers cannot be added; the stored trace says why.
+                record.exception = type(exc).__name__
+                if record.status is None:
+                    record.status = 500
+                raise
+            finally:
+                record.duration_ms = (time.perf_counter_ns() - started) / 1_000_000
+
+    async def _serve_api(self, scope: Scope, send: Send) -> None:
+        if scope["method"] not in {"GET", "HEAD"}:
+            await _json(send, 405, {"error": "method not allowed"})
+            return
+        rest = scope["path"][len(self._prefix) :].strip("/").split("/")
+        if rest == ["api", "requests"]:
+            await _json(send, 200, {"requests": [summary(r) for r in self.store.newest_first()]})
+            return
+        if len(rest) == 3 and rest[:2] == ["api", "requests"]:
+            record = self.store.get(rest[2])
+            if record is not None:
+                await _json(send, 200, detail(record))
+                return
+        await _json(send, 404, {"error": "not found"})
+
+
+async def _json(send: Send, status: int, body: Any) -> None:
+    payload = json.dumps(body, default=str).encode()
+    await send(
+        {
+            "type": "http.response.start",
+            "status": status,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(payload)).encode()),
+                (b"cache-control", b"no-store"),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": payload})
