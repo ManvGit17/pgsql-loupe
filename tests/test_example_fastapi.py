@@ -1,4 +1,4 @@
-"""Phase 2 "done when": the examples/fastapi-psycopg app, run for real against PostgreSQL."""
+"""The examples/fastapi-psycopg app, run for real against PostgreSQL."""
 
 from __future__ import annotations
 

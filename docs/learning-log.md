@@ -1,6 +1,6 @@
 # Learning log
 
-## Phase 0: is it worth building? (2026-11-18)
+## Prior art and scaffold (2026-11-18)
 
 **What was built**
 
@@ -24,7 +24,7 @@
 - Every existing panel hooks SQLAlchemy. A tool that hooks the driver (psycopg's cursor,
   asyncpg's logger) also sees raw SQL, which is the gap SQL Lens fills.
 - PostgreSQL's `auto_explain` proves the server can report plans *and* triggers for the
-  statement as it really ran, with no replay. That idea matters for Phase 3.
+  statement as it really ran, with no replay. That idea matters for plan capture.
 - The placeholder test fails, rather than skips, without a database, and checks the server
   version. Each matrix job therefore proves it ran against the version it claims.
 
@@ -40,7 +40,7 @@
    what is not undone by the rollback?
 5. The CI test job sets `EXPECT_PG_MAJOR`. What mistake would go unnoticed without it?
 
-## Phase 1: the trace and the psycopg collector (2026-11-19)
+## The trace and the psycopg collector (2026-11-19)
 
 **What was built**
 
@@ -81,7 +81,7 @@
    statements land in different traces.
 5. Why does `stream()` treat `GeneratorExit` differently from other exceptions?
 
-## Phase 2: ASGI middleware and JSON output (2026-11-19)
+## ASGI middleware and JSON output (2026-11-19)
 
 **What was built**
 
@@ -100,7 +100,7 @@
 - A pure ASGI middleware calls the app in the same asyncio task, so the trace ContextVar is
   visible in the endpoint. FastAPI runs `def` endpoints in a thread pool but copies the
   context first, which is why the example's sync endpoints are traced too.
-- Authorisation guards *activation*, not only the API: in Phase 3, `?lens=plan` will run
+- Authorisation guards *activation*, not only the API: once plan capture exists, `?lens=plan` will run
   `EXPLAIN ANALYZE`, so a stranger must not be able to turn it on.
 - "Localhost only" is broken by a reverse proxy on the same machine (every request then
   comes from 127.0.0.1), so a request with `X-Forwarded-For` or `Forwarded` counts as remote.

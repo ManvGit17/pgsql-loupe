@@ -18,7 +18,7 @@ class RequestRecord:
     method: str
     path: str
     mode: str
-    """'trace' (statements only) or 'plan' (plans are added in a later phase)."""
+    """'trace' (statements only) or 'plan' (also captures query plans)."""
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     status: int | None = None
     duration_ms: float | None = None
