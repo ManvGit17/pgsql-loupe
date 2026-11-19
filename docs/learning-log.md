@@ -39,3 +39,44 @@
 4. In tuple-beat's `plan` mode, how many times does an `UPDATE` run on the server, and
    what is not undone by the rollback?
 5. The CI test job sets `EXPECT_PG_MAJOR`. What mistake would go unnoticed without it?
+
+## Phase 1: the trace and the psycopg collector (2026-11-19)
+
+**What was built**
+
+- `core/trace.py`: `Statement` (one SQL statement: text, redacted parameters, timing, row
+  count, error, call site, transaction status, server process id) and `Trace` (a list of
+  statements). `pgsql_loupe.trace()` makes a trace active for a `with` or `async with` block.
+- `core/redact.py`: parameters are stored as short text. Named values that look secret
+  (`password`, `token`, `key`, ...) become `<redacted>`; long values are cut.
+- `core/callsite.py`: walks the Python stack to the first frame outside the stdlib,
+  site-packages and this library, so a statement points at the user's own line.
+- `collectors/psycopg.py`: `instrument(conn)` puts a recording mixin in front of the
+  connection's own cursor classes. It wraps `execute`, `executemany`, `stream`, `copy` and
+  server-side cursors, sync and async. `instrument_async` is the same for async pools.
+- `docs/adr/0001-psycopg-hook.md`: why the cursor factory was chosen over alternatives.
+
+**Why**
+
+- psycopg has no "on every query" hook, but every cursor is created from
+  `conn.cursor_factory`. Subclassing whatever class is already there keeps a user's
+  `ClientCursor` or `RawCursor` working.
+- The active trace is a `ContextVar`. asyncio gives each task a copy of the context, so
+  concurrent requests on one event loop never mix their statements; a test runs three at
+  once to prove it.
+- The tracer must never change a query's result. Recording happens around the real call;
+  the user's exception is re-raised untouched; a bug inside the recorder makes the
+  statement go unrecorded instead of failing (tested by forcing the recorder to crash).
+- A mutation check (making `instrument` do nothing) made 21 tests fail, so the tests
+  really exercise the hook.
+
+**Quiz**
+
+1. Why does `instrument` build a subclass of the connection's current `cursor_factory`
+   instead of always using one `TracedCursor` class?
+2. `executemany` is wrapped separately from `execute`. What would go wrong if it were not,
+   and why can't the wrapper simply call `len()` on its parameters?
+3. A server-side cursor's statement shows a tiny duration even for a huge query. Why?
+4. Two requests run concurrently on one event loop. Explain step by step why their
+   statements land in different traces.
+5. Why does `stream()` treat `GeneratorExit` differently from other exceptions?
