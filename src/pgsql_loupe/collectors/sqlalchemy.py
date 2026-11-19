@@ -10,14 +10,18 @@ records it, and the psycopg collector skips marked cursors. See docs/adr/0006-mo
 from __future__ import annotations
 
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import event
 from sqlalchemy.engine import Connection, Engine, ExceptionContext, ExecutionContext
-from sqlalchemy.ext.asyncio import AsyncEngine
 
 from pgsql_loupe.core.record import SKIP_ATTRIBUTE, Recording, begin, copy_params
 from pgsql_loupe.core.trace import Replay, current_trace
+
+if TYPE_CHECKING:
+    # Type checking only: importing sqlalchemy.ext.asyncio needs greenlet, which sync
+    # SQLAlchemy apps do not install.
+    from sqlalchemy.ext.asyncio import AsyncEngine
 
 __all__ = ["instrument_engine"]
 
@@ -132,7 +136,9 @@ def _error(exception_context: ExceptionContext) -> None:
 
 def instrument_engine(engine: Engine | AsyncEngine) -> None:
     """Record this engine's statements into the active trace. Safe to call twice."""
-    target = engine.sync_engine if isinstance(engine, AsyncEngine) else engine
+    # An AsyncEngine wraps a sync Engine. Checking for Engine (not AsyncEngine) avoids importing
+    # sqlalchemy.ext.asyncio, which needs greenlet, which sync-only apps do not install.
+    target = engine if isinstance(engine, Engine) else engine.sync_engine
     if event.contains(target, "before_cursor_execute", _before):
         return
     event.listen(target, "before_cursor_execute", _before)

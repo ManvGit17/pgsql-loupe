@@ -9,14 +9,14 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Iterable
-from dataclasses import dataclass, field
 from typing import Any
 
 import psycopg
 from psycopg import sql
 
 from pgsql_loupe.core.trace import Statement
-from pgsql_loupe.explain.flags import FlagThresholds, add_flags
+from pgsql_loupe.explain.flags import add_flags
+from pgsql_loupe.explain.options import ExplainOptions
 from pgsql_loupe.explain.plan import PlanResult, parse_document
 from pgsql_loupe.explain.safety import classify
 
@@ -27,21 +27,6 @@ else:  # pragma: no cover - template strings need Python 3.14
 
 ANALYZE_OPTIONS = "ANALYZE, BUFFERS, FORMAT JSON"
 PLAIN_OPTIONS = "FORMAT JSON"
-
-
-@dataclass(frozen=True)
-class ExplainOptions:
-    dsn: str
-    """Connection used for replays. Never the application's own connection."""
-    analyze_reads: bool = True
-    """Run reads under EXPLAIN ANALYZE (read-only transaction). False: plain EXPLAIN only."""
-    analyze_writes: bool = False
-    """Run INSERT/UPDATE/DELETE under EXPLAIN ANALYZE (in a rolled-back transaction)."""
-    timeout_ms: int = 5_000
-    lock_timeout_ms: int = 1_000
-    max_plans: int = 25
-    """At most this many replays per request in ?lens=plan mode."""
-    thresholds: FlagThresholds = field(default_factory=FlagThresholds)
 
 
 def _with_prefix(query: Any, options: str) -> Any:

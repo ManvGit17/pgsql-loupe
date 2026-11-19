@@ -20,7 +20,6 @@ from pgsql_loupe.asgi.config import LoupeConfig, Scope
 from pgsql_loupe.asgi.serialize import detail, plan_to_dict, summary
 from pgsql_loupe.asgi.store import RequestRecord, RequestStore
 from pgsql_loupe.core.trace import Trace, trace
-from pgsql_loupe.explain.capture import capture_plans
 
 Message = MutableMapping[str, Any]
 Receive = Callable[[], Awaitable[Message]]
@@ -134,6 +133,10 @@ class LoupeMiddleware:
         if options is None:
             record.plan_note = "plan capture is not configured (LoupeConfig.explain)"
             return
+        capture_plans = _load_capture()
+        if capture_plans is None:
+            record.plan_note = NO_PSYCOPG
+            return
         runs = await asyncio.to_thread(capture_plans, list(record.trace.statements), options)
         record.plan_note = f"{runs} plan(s) captured"
 
@@ -180,11 +183,28 @@ class LoupeMiddleware:
         if not index.isdigit() or int(index) >= len(statements):
             await _json(send, 404, {"error": "not found"})
             return
+        capture_plans = _load_capture()
+        if capture_plans is None:
+            await _json(send, 501, {"error": NO_PSYCOPG})
+            return
         statement = statements[int(index)]
         statement.plan = None  # explain again on request
         await asyncio.to_thread(capture_plans, [statement], options)
         assert statement.plan is not None
         await _json(send, 200, plan_to_dict(statement.plan))
+
+
+NO_PSYCOPG = "plan capture needs psycopg: pip install pgsql-loupe[psycopg]"
+
+
+def _load_capture() -> Callable[..., int] | None:
+    """capture_plans, or None when psycopg is not installed (plans are the only part of the
+    middleware that needs it)."""
+    try:
+        from pgsql_loupe.explain.capture import capture_plans
+    except ImportError:
+        return None
+    return capture_plans
 
 
 def _injectable(headers: list[tuple[bytes, bytes]]) -> bool:

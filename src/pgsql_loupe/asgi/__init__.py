@@ -8,7 +8,7 @@ from typing import Any
 from pgsql_loupe.analyzers import AnalyzerOptions
 from pgsql_loupe.asgi.config import LoupeConfig, ProductionGuardError, localhost_only
 from pgsql_loupe.asgi.middleware import LoupeMiddleware
-from pgsql_loupe.explain.capture import ExplainOptions
+from pgsql_loupe.explain.options import ExplainOptions
 
 __all__ = [
     "AnalyzerOptions",

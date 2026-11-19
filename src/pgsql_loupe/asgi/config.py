@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from pgsql_loupe.analyzers import AnalyzerOptions
-from pgsql_loupe.explain.capture import ExplainOptions
+from pgsql_loupe.explain.options import ExplainOptions
 
 Scope = MutableMapping[str, Any]
 
