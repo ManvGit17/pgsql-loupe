@@ -55,3 +55,19 @@ export function timelineBar(
   const width = Math.max(0.4, Math.min(100 - left, ((s.duration_ms ?? 0) / totalMs) * 100));
   return { left, width };
 }
+
+/** A transaction status from psycopg/asyncpg (IDLE, INTRANS, INERROR, ...) in words. */
+export function transactionLabel(status: string | null): string | null {
+  switch (status) {
+    case "IDLE":
+      return "outside a transaction";
+    case "INTRANS":
+      return "in a transaction";
+    case "INERROR":
+      return "in a failed transaction";
+    case "ACTIVE":
+      return "while another statement ran";
+    default:
+      return status ? status.toLowerCase() : null;
+  }
+}
