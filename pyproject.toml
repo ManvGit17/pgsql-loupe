@@ -30,9 +30,10 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/ManvGit17/pgsql-loupe"
-Documentation = "https://manvgit17.github.io/pgsql-loupe/"
-Changelog = "https://github.com/ManvGit17/pgsql-loupe/blob/main/CHANGELOG.md"
+Source = "https://github.com/ManvGit17/pgsql-loupe"
 Issues = "https://github.com/ManvGit17/pgsql-loupe/issues"
+Documentation = "https://github.com/ManvGit17/pgsql-loupe/tree/main/docs"
+Changelog = "https://github.com/ManvGit17/pgsql-loupe/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 psycopg = ["psycopg>=3.3,<4"]

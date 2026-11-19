@@ -1,0 +1,38 @@
+name: Bug report
+description: Something does not work as documented.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce
+      description: The smallest code, request or test that shows it. Remove secrets and real data.
+      render: python
+    validations:
+      required: true
+  - type: dropdown
+    id: driver
+    attributes:
+      label: Driver
+      options: [psycopg 3, SQLAlchemy 2 (sync), SQLAlchemy 2 (async), asyncpg, not driver related]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: pgsql-loupe, Python, PostgreSQL, the driver, and FastAPI/Starlette if used.
+      placeholder: "pgsql-loupe 0.1.0, Python 3.13, PostgreSQL 18, psycopg 3.3.9"
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: Possible fix (optional)
+      description: If you know where the problem is or how to fix it.

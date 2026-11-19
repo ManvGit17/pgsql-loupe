@@ -1,5 +1,8 @@
 # Contributing
 
+Bugs and ideas: open an issue with one of the forms at
+https://github.com/ManvGit17/pgsql-loupe/issues/new/choose. Fixes: open a pull request.
+
 ```bash
 docker compose up -d --wait
 uv sync

@@ -107,6 +107,15 @@ Measured by [`bench/overhead.py`](https://github.com/ManvGit17/pgsql-loupe/blob/
 [Safety model](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/safety.md) · [Recipes](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/recipes.md) ·
 [Design decisions](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/adr/0001-psycopg-hook.md)
 
+## Bugs and ideas
+
+Please open an issue on GitHub:
+[report a bug or suggest an improvement](https://github.com/ManvGit17/pgsql-loupe/issues/new/choose).
+Fixes are welcome as pull requests; see
+[CONTRIBUTING.md](https://github.com/ManvGit17/pgsql-loupe/blob/main/CONTRIBUTING.md).
+Security problems: report them privately through
+[GitHub's advisory form](https://github.com/ManvGit17/pgsql-loupe/security/advisories/new).
+
 Python 3.11 to 3.15, PostgreSQL 16 to 18. Licence: Apache-2.0.
 
 Built with help from [Claude Code](https://claude.com/claude-code).
