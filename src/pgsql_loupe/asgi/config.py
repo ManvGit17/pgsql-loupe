@@ -71,6 +71,8 @@ class LoupeConfig:
     """Plan capture settings. None: ?lens=plan records statements only."""
     analyzers: AnalyzerOptions = field(default_factory=AnalyzerOptions)
     """Thresholds for N+1 and slow-statement warnings."""
+    inject_toggle: bool = False
+    """Add a small "SQL" link to traced HTML pages that opens the panel on that request."""
 
     def is_enabled(self, environ: Mapping[str, str] | None = None) -> bool:
         env = os.environ if environ is None else environ

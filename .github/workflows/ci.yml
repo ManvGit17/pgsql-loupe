@@ -46,3 +46,46 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: uv run pytest
+
+  panel:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: panel-src
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: panel-src/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx vite build
+      - name: Committed build matches the source
+        run: git diff --exit-code -- ../src/pgsql_loupe/panel
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 2s
+          --health-retries 30
+    env:
+      TEST_PG_DSN: postgresql://test:test@127.0.0.1:5432/test
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: "3.13"
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run pytest -m e2e

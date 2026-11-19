@@ -18,5 +18,9 @@
   statements and a per-request summary (statement count, database time, share of request time).
   Served as `analysis` in `GET /__lens/api/requests/{id}`; each statement has a `fingerprint`.
   Thresholds: `LoupeConfig(analyzers=AnalyzerOptions(...))`.
+- Panel at `/__lens/`: request list, statement timeline, SQL with parameters and call
+  sites, plan tree with triggers and flags, N+1 and duplicate warnings, an Explain button,
+  keyboard navigation, light and dark themes. Ships built inside the package; no Node needed.
+- `LoupeConfig(inject_toggle=True)`: adds a link to the panel on traced HTML pages (off by default).
 - The default authorisation now also requires a local `Host` header (DNS-rebinding protection).
 - Install the psycopg collector with `pip install pgsql-loupe[psycopg]`.
