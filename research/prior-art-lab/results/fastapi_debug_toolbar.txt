@@ -1,0 +1,7 @@
+GET /dep/nplus1: status=200 stored=1 queries=11
+    sql='SELECT id FROM artists ORDER BY id' params=[{}] dup=None similar=None
+    sql='SELECT title FROM tracks WHERE artist_id = %(a)s' params=[{'a': 1}] dup=None similar=None
+GET /sa/nplus1: status=200 stored=1 queries=0
+GET /sa/dup: status=200 stored=1 queries=0
+GET /raw/nplus1: status=200 stored=1 queries=0
+GET /apg/nplus1: status=200 stored=1 queries=0
