@@ -5,7 +5,7 @@ did to the database: every statement, its parameters, how long it took, the line
 that ran it, `EXPLAIN ANALYZE` plans, the triggers that fired, and a warning when the same
 query ran once per row.
 
-![The panel showing an N+1 warning and a query plan](docs/images/panel.png)
+![The panel showing an N+1 warning and a query plan](https://raw.githubusercontent.com/ManvGit17/pgsql-loupe/main/docs/images/panel.png)
 
 ## Try it
 
@@ -47,7 +47,7 @@ Open <http://127.0.0.1:8000/tables?lens=plan>, then the panel at
 It is off unless `PGSQL_LOUPE_ENABLED=1`, refuses to start when the environment says
 production, answers only requests from this machine, and redacts parameters that look secret.
 Plan capture runs on its own connection and never executes a write unless you ask
-([how](docs/plans.md)).
+([how](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/plans.md)).
 
 ## Drivers
 
@@ -77,7 +77,7 @@ it, and its time.
 
 ## Compared with other tools
 
-Checked hands-on on 2026-11-18 ([details and how to reproduce](docs/prior-art.md)):
+Checked hands-on on 2026-11-18 ([details and how to reproduce](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/prior-art.md)):
 
 | | pgsql-loupe | litestar-debug-toolbar | queryspy | PostgreSQL auto_explain |
 |---|---|---|---|---|
@@ -90,8 +90,8 @@ Checked hands-on on 2026-11-18 ([details and how to reproduce](docs/prior-art.md
 
 ## Overhead
 
-Measured by [`bench/overhead.py`](bench/overhead.py); full output, machine and versions in
-[`bench/results/2026-11-19-windows.md`](bench/results/2026-11-19-windows.md)
+Measured by [`bench/overhead.py`](https://github.com/ManvGit17/pgsql-loupe/blob/main/bench/overhead.py); full output, machine and versions in
+[`bench/results/2026-11-19-windows.md`](https://github.com/ManvGit17/pgsql-loupe/blob/main/bench/results/2026-11-19-windows.md)
 (Windows 11 laptop, PostgreSQL 18.7 in Docker on the same machine).
 
 | | Added cost |
@@ -102,10 +102,19 @@ Measured by [`bench/overhead.py`](bench/overhead.py); full output, machine and v
 
 ## Documentation
 
-[Quick start per driver](docs/quickstart.md) · [Query plans](docs/plans.md) ·
-[In tests](docs/testing.md) · [Configuration](docs/configuration.md) ·
-[Safety model](docs/safety.md) · [Recipes](docs/recipes.md) ·
-[Design decisions](docs/adr/0001-psycopg-hook.md)
+[Quick start per driver](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/quickstart.md) · [Query plans](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/plans.md) ·
+[In tests](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/testing.md) · [Configuration](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/configuration.md) ·
+[Safety model](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/safety.md) · [Recipes](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/recipes.md) ·
+[Design decisions](https://github.com/ManvGit17/pgsql-loupe/blob/main/docs/adr/0001-psycopg-hook.md)
+
+## Bugs and ideas
+
+Please open an issue on GitHub:
+[report a bug or suggest an improvement](https://github.com/ManvGit17/pgsql-loupe/issues/new/choose).
+Fixes are welcome as pull requests; see
+[CONTRIBUTING.md](https://github.com/ManvGit17/pgsql-loupe/blob/main/CONTRIBUTING.md).
+Security problems: report them privately through
+[GitHub's advisory form](https://github.com/ManvGit17/pgsql-loupe/security/advisories/new).
 
 Python 3.11 to 3.15, PostgreSQL 16 to 18. Licence: Apache-2.0.
 

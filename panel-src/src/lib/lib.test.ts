@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { copyableSql, firstLine, ms, paramPairs, percent, shortSite, timelineBar } from "./format";
+import {
+  copyableSql,
+  firstLine,
+  ms,
+  paramPairs,
+  percent,
+  shortSite,
+  timelineBar,
+  transactionLabel,
+} from "./format";
 import { explainNode, nodeTone } from "./planNodes";
 import { tokenizeSql } from "./sqlTokens";
 
@@ -34,6 +43,16 @@ describe("format", () => {
     expect(timelineBar({ start_ms: 99, duration_ms: 50 }, 100).width).toBeCloseTo(1);
     expect(timelineBar({ start_ms: 0, duration_ms: 0 }, 100).width).toBe(0.4);
     expect(timelineBar({ start_ms: 0, duration_ms: 1 }, 0)).toEqual({ left: 0, width: 0 });
+  });
+});
+
+describe("transaction labels", () => {
+  it("puts driver status codes into words", () => {
+    expect(transactionLabel("INTRANS")).toBe("in a transaction");
+    expect(transactionLabel("IDLE")).toBe("outside a transaction");
+    expect(transactionLabel("INERROR")).toBe("in a failed transaction");
+    expect(transactionLabel("UNKNOWN")).toBe("unknown");
+    expect(transactionLabel(null)).toBeNull();
   });
 });
 

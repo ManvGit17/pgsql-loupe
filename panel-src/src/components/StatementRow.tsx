@@ -1,7 +1,16 @@
 import { AlertTriangle, ChevronDown, Copy, Gauge, Zap } from "lucide-react";
 import { useState } from "react";
 import { explainStatement } from "../api";
-import { copyableSql, firstLine, ms, paramPairs, plural, shortSite, timelineBar } from "../lib/format";
+import {
+  copyableSql,
+  firstLine,
+  ms,
+  paramPairs,
+  plural,
+  shortSite,
+  timelineBar,
+  transactionLabel,
+} from "../lib/format";
 import type { PlanResult, Statement } from "../types";
 import { PlanTree } from "./PlanTree";
 import { SqlCode } from "./SqlCode";
@@ -171,7 +180,7 @@ export function StatementRow({
             {s.kind}
             {s.rowcount != null ? ` · ${plural(s.rowcount, "row")}` : ""}
             {s.param_sets != null ? ` · ${plural(s.param_sets, "parameter set")}` : ""}
-            {s.tx_status ? ` · transaction ${s.tx_status.toLowerCase()}` : ""}
+            {transactionLabel(s.tx_status) ? ` · ${transactionLabel(s.tx_status)}` : ""}
             {s.call_site ? (
               <>
                 {" · "}

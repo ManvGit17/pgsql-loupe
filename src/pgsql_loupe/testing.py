@@ -109,6 +109,7 @@ class QueryRecorder:
     # --- assertions --------------------------------------------------------------------
 
     def assert_max_queries(self, limit: int) -> None:
+        __tracebackhide__ = True  # pytest: point the failure at the test, not here
         statements = self.statements
         if len(statements) > limit:
             raise AssertionError(
@@ -116,6 +117,7 @@ class QueryRecorder:
             )
 
     def assert_num_queries(self, expected: int) -> None:
+        __tracebackhide__ = True  # pytest: point the failure at the test, not here
         statements = self.statements
         if len(statements) != expected:
             raise AssertionError(
@@ -124,6 +126,7 @@ class QueryRecorder:
             )
 
     def assert_no_nplus1(self, threshold: int | None = None) -> None:
+        __tracebackhide__ = True  # pytest: point the failure at the test, not here
         statements = self.statements
         options = AnalyzerOptions() if threshold is None else AnalyzerOptions(threshold)
         found = analyze(statements, options=options).nplus1
@@ -145,7 +148,9 @@ class QueryRecorder:
         need must be committed: a test that keeps everything in an open transaction cannot
         be explained from another connection.
         """
-        from pgsql_loupe.explain.capture import ExplainOptions, capture_plans
+        __tracebackhide__ = True
+        from pgsql_loupe.explain.capture import capture_plans
+        from pgsql_loupe.explain.options import ExplainOptions
         from pgsql_loupe.explain.plan import walk
 
         target = dsn or self.dsn

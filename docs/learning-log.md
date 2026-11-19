@@ -339,3 +339,42 @@
 3. Why does the clean-machine check make its requests from inside the container?
 4. Why must the README's install line include `psycopg[binary]` on a slim image?
 5. What does `mkdocs build --strict` catch that a normal build does not?
+
+## Final check before publishing (2026-11-19)
+
+**What was done**
+
+A new user's path, outside the development environment: the wheel and sdist contents,
+`twine check`, a fresh virtualenv per driver installed from the built wheel, each quick start
+run under uvicorn, the panel opened in Chromium, and the pytest plugin used from a clean
+project. Plus a look at why the first `v0.1.0` release job failed.
+
+**Bugs found and fixed**
+
+- `pgsql_loupe.asgi` imported psycopg, so SQLAlchemy and asyncpg users without psycopg could
+  not use the middleware at all. Only plan capture needs psycopg now; without it the panel says
+  so. A test runs everything with `import psycopg` blocked.
+- The SQLAlchemy collector imported `sqlalchemy.ext.asyncio` to recognise async engines, which
+  needs greenlet, so sync-only SQLAlchemy apps could not import it. Now it checks for a sync
+  `Engine` instead. A test runs it with `import greenlet` blocked.
+- The README's links and screenshot were relative, which breaks on the PyPI page. They are
+  absolute now, with a test.
+- Polish: pytest failures now point at the user's test line, and the panel says "in a
+  transaction" instead of "intrans".
+
+**Why our tests missed the first two**
+
+The development environment always had psycopg and greenlet installed, so nothing could fail
+for their absence. The new tests remove them on purpose.
+
+**The release job**: it failed at PyPI's token exchange (`invalid-publisher`): the claims
+GitHub sent were right, but no matching trusted publisher existed on PyPI. Nothing was
+uploaded, which is lucky: the tag pointed at the code with the first bug.
+
+**Quiz**
+
+1. Why did the full test suite pass while the middleware was unusable without psycopg?
+2. How does the new test simulate a machine without psycopg?
+3. Why are relative links fine on GitHub but broken on PyPI?
+4. What does `__tracebackhide__` do in a pytest helper?
+5. Why is it better that the release job failed than that it succeeded?

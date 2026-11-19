@@ -9,7 +9,11 @@ pip install "pgsql-loupe[psycopg]"      # or [sqlalchemy], or [asyncpg]
 ```
 
 The extras only declare the driver; your app installs the driver the way it already does.
-Plan capture always uses psycopg, so install `pgsql-loupe[psycopg]` too if you want plans.
+Plan capture always uses psycopg, so install `pgsql-loupe[psycopg]` too if you want plans;
+without it, everything else works and the panel says plans need psycopg.
+
+SQLAlchemy's async engines need its `asyncio` extra (`pip install "sqlalchemy[asyncio]"`), which
+brings greenlet; sync engines do not.
 
 ## 2. Hook the driver (one line)
 
