@@ -24,6 +24,8 @@ class RequestRecord:
     duration_ms: float | None = None
     exception: str | None = None
     """Class name of an exception that escaped the app, if any."""
+    plan_note: str | None = None
+    """In plan mode: how plan capture went."""
 
     @property
     def id(self) -> str:

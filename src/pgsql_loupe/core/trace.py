@@ -12,13 +12,28 @@ import uuid
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pgsql_loupe.core.callsite import CallSite
+
+if TYPE_CHECKING:
+    from pgsql_loupe.explain.plan import PlanResult
 
 StatementKind = Literal["execute", "executemany", "stream", "copy", "declare"]
 
 _current: ContextVar[Trace | None] = ContextVar("pgsql_loupe_trace", default=None)
+
+
+@dataclass(frozen=True)
+class Replay:
+    """What is needed to run a statement again for EXPLAIN. Never served by the API."""
+
+    query: Any
+    """The query object the user passed (str, bytes, sql.Composed or a template string)."""
+    params: Any
+    """A shallow copy of the original parameters (for executemany: the first set)."""
+    raw: bool = False
+    """True if the statement used $1-style placeholders (a psycopg RawCursor)."""
 
 
 @dataclass
@@ -41,6 +56,9 @@ class Statement:
     tx_status: str | None = None
     """Transaction status before the statement ran: IDLE, INTRANS, INERROR, ..."""
     backend_pid: int | None = None
+    plan: PlanResult | None = None
+    """Filled in by plan capture (?lens=plan or the explain endpoint)."""
+    replay: Replay | None = field(default=None, repr=False, compare=False)
 
 
 @dataclass

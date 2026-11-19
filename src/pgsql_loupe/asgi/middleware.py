@@ -8,6 +8,7 @@ See docs/adr/0002-asgi-middleware-and-guard.md.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from collections.abc import Awaitable, Callable, Mapping, MutableMapping
@@ -15,9 +16,10 @@ from typing import Any
 from urllib.parse import parse_qs
 
 from pgsql_loupe.asgi.config import LoupeConfig, Scope
-from pgsql_loupe.asgi.serialize import detail, summary
+from pgsql_loupe.asgi.serialize import detail, plan_to_dict, summary
 from pgsql_loupe.asgi.store import RequestRecord, RequestStore
 from pgsql_loupe.core.trace import Trace, trace
+from pgsql_loupe.explain.capture import capture_plans
 
 Message = MutableMapping[str, Any]
 Receive = Callable[[], Awaitable[Message]]
@@ -102,12 +104,30 @@ class LoupeMiddleware:
                 raise
             finally:
                 record.duration_ms = (time.perf_counter_ns() - started) / 1_000_000
+                if mode == "plan":
+                    await self._capture_plans(record)
+
+    async def _capture_plans(self, record: RequestRecord) -> None:
+        """Runs after the app has returned, so the response has already been sent."""
+        options = self.config.explain
+        if options is None:
+            record.plan_note = "plan capture is not configured (LoupeConfig.explain)"
+            return
+        runs = await asyncio.to_thread(capture_plans, list(record.trace.statements), options)
+        record.plan_note = f"{runs} plan(s) captured"
 
     async def _serve_api(self, scope: Scope, send: Send) -> None:
+        rest = scope["path"][len(self._prefix) :].strip("/").split("/")
+        if (
+            len(rest) == 6
+            and rest[:2] == ["api", "requests"]
+            and rest[3:] == ["statements", rest[4], "explain"]
+        ):
+            await self._explain_one(scope, send, rest[2], rest[4])
+            return
         if scope["method"] not in {"GET", "HEAD"}:
             await _json(send, 405, {"error": "method not allowed"})
             return
-        rest = scope["path"][len(self._prefix) :].strip("/").split("/")
         if rest == ["api", "requests"]:
             await _json(send, 200, {"requests": [summary(r) for r in self.store.newest_first()]})
             return
@@ -117,6 +137,30 @@ class LoupeMiddleware:
                 await _json(send, 200, detail(record))
                 return
         await _json(send, 404, {"error": "not found"})
+
+    async def _explain_one(self, scope: Scope, send: Send, record_id: str, index: str) -> None:
+        """POST {prefix}/api/requests/{id}/statements/{n}/explain: replay one statement."""
+        if scope["method"] != "POST":
+            await _json(send, 405, {"error": "method not allowed"})
+            return
+        if not any(name.lower() == b"x-lens" for name, _ in scope.get("headers", [])):
+            # A cross-site page cannot add this header without a CORS preflight we never allow.
+            await _json(send, 403, {"error": "send an X-Lens header with this request"})
+            return
+        options = self.config.explain
+        if options is None:
+            await _json(send, 409, {"error": "plan capture is not configured"})
+            return
+        record = self.store.get(record_id)
+        statements = record.trace.statements if record else []
+        if not index.isdigit() or int(index) >= len(statements):
+            await _json(send, 404, {"error": "not found"})
+            return
+        statement = statements[int(index)]
+        statement.plan = None  # explain again on request
+        await asyncio.to_thread(capture_plans, [statement], options)
+        assert statement.plan is not None
+        await _json(send, 200, plan_to_dict(statement.plan))
 
 
 async def _json(send: Send, status: int, body: Any) -> None:
