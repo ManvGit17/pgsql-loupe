@@ -4,6 +4,9 @@
 
 First release.
 
+- Only plan capture needs psycopg: SQLAlchemy and asyncpg apps can use everything else without
+  it, and sync SQLAlchemy apps do not need greenlet.
+
 - `pgsql_loupe.trace()`: records every statement run inside the block (`with` or `async with`).
 - `pgsql_loupe.collectors.psycopg.instrument(conn)` and `instrument_async(conn)`: record psycopg 3
   statements (execute, executemany, stream, copy, server-side cursors), sync and async.
