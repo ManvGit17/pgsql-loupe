@@ -66,3 +66,17 @@ def artists_with_tracks() -> list[dict[str, Any]]:
                 (artist["id"],),
             ).fetchall()
     return result
+
+
+@app.get("/artists/tracks-fixed")
+def artists_with_tracks_fixed() -> list[dict[str, Any]]:
+    """The same result in two queries, whatever the number of artists."""
+    with pool.connection() as conn, conn.cursor(row_factory=dict_row) as cur:
+        result = cur.execute("SELECT id, name FROM example_artists ORDER BY id").fetchall()
+        tracks = cur.execute(
+            "SELECT artist_id, title FROM example_tracks WHERE artist_id = ANY(%s) ORDER BY id",
+            ([artist["id"] for artist in result],),
+        ).fetchall()
+    for artist in result:
+        artist["tracks"] = [{"title": t["title"]} for t in tracks if t["artist_id"] == artist["id"]]
+    return result

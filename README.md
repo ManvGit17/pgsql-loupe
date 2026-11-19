@@ -19,7 +19,8 @@ install(app, LoupeConfig(explain=ExplainOptions(dsn=dsn)))
 Run with `PGSQL_LOUPE_ENABLED=1`, request any page with `?lens=1`, then open
 `/__lens/api/requests/<X-Lens-Id>`. Use `?lens=plan` to also capture `EXPLAIN ANALYZE`
 plans and fired triggers (see [docs/adr/0003-plan-capture-safety.md](docs/adr/0003-plan-capture-safety.md)
-for how writes are kept safe). It is off by default, refuses to start when the
+for how writes are kept safe). Each trace also lists N+1 patterns, duplicate queries and
+slow statements. It is off by default, refuses to start when the
 environment says production, and only answers requests from localhost.
 
 Licence: Apache-2.0.

@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict, fields
 from typing import Any
 
+from pgsql_loupe.analyzers import AnalyzerOptions, analyze, fingerprint
 from pgsql_loupe.asgi.store import RequestRecord
 from pgsql_loupe.core.trace import Statement
 from pgsql_loupe.explain.plan import PlanResult
@@ -32,13 +33,15 @@ def statement_to_dict(index: int, statement: Statement) -> dict[str, Any]:
     data["start_ms"] = _ms(statement.start_ms)
     data["duration_ms"] = _ms(statement.duration_ms)
     data["call_site"] = asdict(statement.call_site) if statement.call_site else None
+    data["fingerprint"] = fingerprint(statement.sql)
     data["explain"] = "none" if statement.kind == "copy" else classify(statement.sql)
     data["plan"] = plan_to_dict(statement.plan) if statement.plan else None
     return data
 
 
-def summary(record: RequestRecord) -> dict[str, Any]:
+def summary(record: RequestRecord, options: AnalyzerOptions | None = None) -> dict[str, Any]:
     statements = record.trace.statements
+    analysis = analyze(statements, record.duration_ms, options)
     return {
         "id": record.id,
         "method": record.method,
@@ -49,13 +52,18 @@ def summary(record: RequestRecord) -> dict[str, Any]:
         "duration_ms": _ms(record.duration_ms),
         "statement_count": len(statements),
         "db_ms": _ms(record.trace.total_ms),
-        "error_count": sum(1 for s in statements if s.error),
+        "db_share": analysis.summary.db_share,
+        "error_count": analysis.summary.error_count,
+        "nplus1_count": len(analysis.nplus1),
+        "duplicate_count": len(analysis.duplicates),
         "exception": record.exception,
         "plan_note": record.plan_note,
     }
 
 
-def detail(record: RequestRecord) -> dict[str, Any]:
-    return summary(record) | {
-        "statements": [statement_to_dict(i, s) for i, s in enumerate(record.trace.statements)]
+def detail(record: RequestRecord, options: AnalyzerOptions | None = None) -> dict[str, Any]:
+    statements = record.trace.statements
+    return summary(record, options) | {
+        "analysis": asdict(analyze(statements, record.duration_ms, options)),
+        "statements": [statement_to_dict(i, s) for i, s in enumerate(statements)],
     }
